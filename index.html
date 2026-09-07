@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Онлайн кликер!</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-primary: #0a0a1a;
+    --bg-secondary: #12122a;
+    --bg-card: #1a1a3e;
+    --bg-card-hover: #222260;
+    --accent: #7c5cfc;
+    --accent-light: #a78bfa;
+    --accent-glow: rgba(124, 92, 252, 0.4);
+    --accent-secondary: #06d6a0;
+    --text-primary: #f0f0ff;
+    --text-secondary: #9896b0;
+    --text-muted: #5a587a;
+    --border: rgba(124, 92, 252, 0.2);
+    --danger: #ff6b6b;
+    --energy-high: #06d6a0;
+    --energy-mid: #ffd166;
+    --energy-low: #ff6b6b;
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ===== REGISTRATION ===== */
+#registration-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-primary);
+}
+
+#reg-bg-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.reg-container {
+    position: relative;
+    z-index: 1;
+    background: rgba(26, 26, 62, 0.85);
+    backdrop-filter: blur(30px);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 48px 40px;
+    width: 90%;
+    max-width: 420px;
+    text-align: center;
+    box-shadow: 0 25px 80px rgba(0,0,0,0.5), 0 0 60px var(--accent-glow);
+    animation: regAppear 0.6s ease-out;
+}
+
+@keyframes regAppear {
+    from { opacity: 0; transform: translateY(30px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.reg-logo-canvas {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px;
+}
+
+.reg-container h1 {
+    font-size: 28px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent-light), var(--accent), var(--accent-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+}
+
+.reg-container p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 32px;
+}
+
+.input-wrapper {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.input-wrapper input {
+    width: 100%;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.input-wrapper input::placeholder {
+    color: var(--text-muted);
+}
+
+.input-wrapper input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px var(--accent-glow);
+    background: rgba(124, 92, 252, 0.05);
+}
+
+.reg-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent), #6341e0);
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.3px;
+}
+
+.reg-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px var(--accent-glow);
+}
+
+.reg-btn:active {
+    transform: translateY(0);
+}
+
+.reg-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.reg-error {
+    color: var(--danger);
+    font-size: 13px;
+    margin-top: 12px;
+    min-height: 20px;
+}
+
+/* ===== GAME LAYOUT ===== */
+#game-screen {
+    display: none;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+}
+
+.game-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background: rgba(18, 18, 42, 0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-logo-canvas {
+    width: 30px;
+    height: 30px;
+}
+
+.header-title {
+    font-size: 17px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent-light), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    background: rgba(124, 92, 252, 0.1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.header-user-icon {
+    width: 22px;
+    height: 22px;
+}
+
+.header-user span {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.online-count {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.online-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-secondary);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(6, 214, 160, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(6, 214, 160, 0); }
+}
+
+.game-main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    padding: 10px;
+    gap: 10px;
+}
+
+/* ===== LEFT PANEL ===== */
+.panel-left {
+    width: 250px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.panel-header {
+    padding: 12px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.panel-header-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.leaderboard-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+}
+
+.leaderboard-list::-webkit-scrollbar { width: 4px; }
+.leaderboard-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+
+.lb-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    transition: background 0.2s;
+    margin-bottom: 2px;
+}
+
+.lb-item:hover { background: rgba(124, 92, 252, 0.08); }
+
+.lb-item.is-me {
+    background: rgba(124, 92, 252, 0.15);
+    border: 1px solid var(--border);
+}
+
+.lb-rank {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    border-radius: 7px;
+    flex-shrink: 0;
+}
+
+.lb-rank.rank-1 { background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; }
+.lb-rank.rank-2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: #000; }
+.lb-rank.rank-3 { background: linear-gradient(135deg, #CD7F32, #B8860B); color: #fff; }
+.lb-rank.rank-other { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+
+.lb-info { flex: 1; min-width: 0; }
+
+.lb-name {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lb-clicks {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
+
+.lb-level {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent-light);
+    padding: 2px 7px;
+    background: rgba(124, 92, 252, 0.12);
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+/* ===== CENTER ===== */
+.panel-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    min-width: 0;
+}
+
+.stats-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 12px;
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 22px;
+    text-align: center;
+    min-width: 110px;
+}
+
+.stat-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+}
+
+.stat-value {
+    font-size: 22px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--text-primary), var(--accent-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.stat-value.level-val {
+    background: linear-gradient(135deg, var(--accent-secondary), #04b890);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.clicker-area {
+    position: relative;
+    margin: 10px 0;
+}
+
+#click-canvas { cursor: pointer; }
+#particles-canvas {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.energy-section {
+    margin-top: 14px;
+    width: 100%;
+    max-width: 280px;
+}
+
+.energy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.energy-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.energy-icon-canvas { width: 14px; height: 14px; }
+
+.energy-value { font-size: 11px; font-weight: 700; }
+
+.energy-bar-bg {
+    width: 100%;
+    height: 8px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.energy-bar-fill {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.3s ease, background 0.5s ease;
+    position: relative;
+}
+
+.energy-bar-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: energyShine 2s ease-in-out infinite;
+}
+
+@keyframes energyShine {
+    0%, 100% { transform: translateX(-100%); }
+    50% { transform: translateX(100%); }
+}
+
+.level-progress-section {
+    margin-top: 10px;
+    width: 100%;
+    max-width: 280px;
+}
+
+.level-progress-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.level-bar-bg {
+    width: 100%;
+    height: 5px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.level-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-secondary), #04b890);
+    border-radius: 5px;
+    transition: width 0.3s ease;
+}
+
+/* ===== RIGHT PANEL ===== */
+.panel-right {
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+
+.chat-msg {
+    padding: 7px 10px;
+    border-radius: 9px;
+    background: rgba(255,255,255,0.03);
+    animation: msgIn 0.3s ease-out;
+}
+
+@keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-msg-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.chat-msg-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-light);
+}
+
+.chat-msg-time {
+    font-size: 9px;
+    color: var(--text-muted);
+}
+
+.chat-msg-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.chat-input-area {
+    padding: 8px 10px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.chat-input-area input {
+    flex: 1;
+    padding: 9px 12px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.chat-input-area input:focus { border-color: var(--accent); }
+
+.chat-send-btn {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), #6341e0);
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+    flex-shrink: 0;
+}
+
+.chat-send-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px var(--accent-glow);
+}
+
+.chat-send-btn canvas { width: 16px; height: 16px; }
+
+/* ===== FOOTER ===== */
+.game-footer {
+    padding: 6px 20px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    background: rgba(18, 18, 42, 0.95);
+    backdrop-filter: blur(20px);
+    flex-shrink: 0;
+}
+
+/* ===== LEVEL UP ===== */
+.level-up-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+.level-up-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.level-up-card {
+    background: var(--bg-card);
+    border: 2px solid var(--accent-secondary);
+    border-radius: 20px;
+    padding: 36px;
+    text-align: center;
+    box-shadow: 0 0 80px rgba(6, 214, 160, 0.3);
+    transform: scale(0.8);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.level-up-overlay.show .level-up-card { transform: scale(1); }
+
+.level-up-card h2 {
+    font-size: 28px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent-secondary), #06f0b0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+}
+
+.level-up-card .level-num {
+    font-size: 56px;
+    font-weight: 900;
+    color: var(--accent-secondary);
+    line-height: 1;
+    margin-bottom: 6px;
+}
+
+.level-up-card p {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+/* ===== CLICK FEEDBACK ===== */
+.click-feedback {
+    position: fixed;
+    pointer-events: none;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent-light);
+    text-shadow: 0 0 10px var(--accent-glow);
+    animation: clickFloat 0.8s ease-out forwards;
+    z-index: 20;
+}
+
+@keyframes clickFloat {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-55px) scale(0.5); }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1050px) {
+    .panel-left { width: 210px; }
+    .panel-right { width: 240px; }
+}
+
+@media (max-width: 860px) {
+    .game-main {
+        flex-direction: column;
+        padding: 6px;
+        gap: 6px;
+    }
+    .panel-left, .panel-right {
+        width: 100%;
+        max-height: 24vh;
+    }
+    .panel-center { flex: 1; min-height: 0; }
+    .stats-row { gap: 8px; }
+    .stat-card { padding: 7px 14px; min-width: 85px; }
+    .stat-value { font-size: 17px; }
+    #click-canvas { width: 110px !important; height: 110px !important; }
+    .energy-section, .level-progress-section { max-width: 230px; }
+}
+
+@media (max-width: 550px) {
+    .game-header { padding: 7px 10px; }
+    .header-title { font-size: 14px; }
+    .panel-left, .panel-right { max-height: 21vh; }
+    .stat-card { padding: 5px 10px; min-width: 65px; }
+    .stat-value { font-size: 15px; }
+    .stat-label { font-size: 8px; }
+    .stats-row { margin-bottom: 6px; }
+    #click-canvas { width: 90px !important; height: 90px !important; }
+    .reg-container { padding: 28px 20px; }
+    .reg-container h1 { font-size: 22px; }
+    .energy-section { margin-top: 8px; }
+    .level-progress-section { margin-top: 6px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== РЕГИСТРАЦИЯ ===== -->
+<div id="registration-screen">
+    <canvas id="reg-bg-canvas"></canvas>
+    <div class="reg-container">
+        <canvas id="reg-logo" class="reg-logo-canvas" width="160" height="160"></canvas>
+        <h1>Онлайн кликер!</h1>
+        <p>Введите никнейм, чтобы начать игру</p>
+        <div class="input-wrapper">
+            <input type="text" id="nickname-input" placeholder="Ваш никнейм..." maxlength="20" autocomplete="off" spellcheck="false">
+        </div>
+        <button class="reg-btn" id="reg-btn" onclick="register()">Начать игру</button>
+        <div class="reg-error" id="reg-error"></div>
+    </div>
+</div>
+
+<!-- ===== ИГРА ===== -->
+<div id="game-screen">
+    <header class="game-header">
+        <div class="header-left">
+            <canvas id="header-logo" class="header-logo-canvas" width="60" height="60"></canvas>
+            <span class="header-title">Онлайн кликер!</span>
+        </div>
+        <div class="online-count">
+            <div class="online-dot"></div>
+            <span id="online-text">Онлайн</span>
+        </div>
+        <div class="header-user">
+            <canvas id="header-user-icon" class="header-user-icon" width="44" height="44"></canvas>
+            <span id="header-nickname">Игрок</span>
+        </div>
+    </header>
+
+    <main class="game-main">
+        <!-- ТАБЛИЦА ЛИДЕРОВ -->
+        <aside class="panel-left">
+            <div class="panel-header">
+                <canvas id="trophy-icon" class="panel-header-icon" width="36" height="36"></canvas>
+                Таблица лидеров
+            </div>
+            <div class="leaderboard-list" id="leaderboard-list"></div>
+        </aside>
+
+        <!-- КЛИКЕР -->
+        <section class="panel-center">
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-label">Клики</div>
+                    <div class="stat-value" id="clicks-display">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Уровень</div>
+                    <div class="stat-value level-val" id="level-display">1</div>
+                </div>
+            </div>
+
+            <div class="clicker-area" id="clicker-area">
+                <canvas id="click-canvas" width="300" height="300" style="width:140px;height:140px;"></canvas>
+                <canvas id="particles-canvas" width="400" height="400" style="width:200px;height:200px;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;"></canvas>
+            </div>
+
+            <div class="energy-section">
+                <div class="energy-header">
+                    <span class="energy-label">
+                        <canvas id="energy-icon" class="energy-icon-canvas" width="28" height="28"></canvas>
+                        Энергия
+                    </span>
+                    <span class="energy-value" id="energy-text">100 / 100</span>
+                </div>
+                <div class="energy-bar-bg">
+                    <div class="energy-bar-fill" id="energy-bar" style="width:100%;background:linear-gradient(90deg,#06d6a0,#04b890);"></div>
+                </div>
+            </div>
+
+            <div class="level-progress-section">
+                <div class="level-progress-label" id="level-progress-label">До следующего уровня: 0 / 1000</div>
+                <div class="level-bar-bg">
+                    <div class="level-bar-fill" id="level-bar" style="width:0%;"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ЧАТ -->
+        <aside class="panel-right">
+            <div class="panel-header">
+                <canvas id="chat-icon" class="panel-header-icon" width="36" height="36"></canvas>
+                Чат
+            </div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Написать сообщение..." maxlength="200" autocomplete="off" spellcheck="false">
+                <button class="chat-send-btn" onclick="sendChat()">
+                    <canvas id="send-icon" width="32" height="32"></canvas>
+                </button>
+            </div>
+        </aside>
+    </main>
+
+    <footer class="game-footer">
+        &copy; 2025 КликВселенная. Все права защищены.
+    </footer>
+</div>
+
+<!-- ===== УРОВЕНЬ ПОВЫШЕН ===== -->
+<div class="level-up-overlay" id="level-up-overlay">
+    <div class="level-up-card">
+        <canvas id="level-up-star-canvas" width="80" height="80" style="width:40px;height:40px;margin:0 auto 10px;display:block;"></canvas>
+        <h2>НОВЫЙ УРОВЕНЬ!</h2>
+        <div class="level-num" id="level-up-num">2</div>
+        <p>Продолжайте кликать, чтобы покорять новые вершины</p>
+    </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+// ============================================================
+// FIREBASE — ЗАМЕНИТЕ НА СВОИ ДАННЫЕ
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyDunk-eA8oiY4SwbCqlOD-h9EyVYL-wwiA",
+  authDomain: "clicker-94702.firebaseapp.com",
+  databaseURL: "https://clicker-94702-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "clicker-94702",
+  storageBucket: "clicker-94702.firebasestorage.app",
+  messagingSenderId: "1085651157718",
+  appId: "1:1085651157718:web:05d7763334191ca3e33f77"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ============================================================
+// СОСТОЯНИЕ ИГРЫ
+// ============================================================
+let userId = localStorage.getItem('cv_uid') || null;
+let userNickname = localStorage.getItem('cv_nick') || '';
+let clicks = parseInt(localStorage.getItem('cv_clicks')) || 0;
+let level = parseInt(localStorage.getItem('cv_level')) || 1;
+let energy = parseFloat(localStorage.getItem('cv_energy')) || 100;
+let lastEnergyTime = parseInt(localStorage.getItem('cv_lastEnergy')) || Date.now();
+
+const MAX_ENERGY = 100;
+const ENERGY_COST = 1;
+const ENERGY_REGEN_RATE = 3;
+const CLICKS_PER_LEVEL = 1000;
+
+let clickBtnScale = 1;
+let clickBtnPulse = 0;
+let particles = [];
+let saveDebounce = null;
+let chatLoaded = false;
+
+// ============================================================
+// Восстановить энергию за время отсутствия
+// ============================================================
+function restoreOfflineEnergy() {
+    const now = Date.now();
+    const elapsed = (now - lastEnergyTime) / 1000;
+    if (elapsed > 0 && energy < MAX_ENERGY) {
+        energy = Math.min(MAX_ENERGY, energy + elapsed * ENERGY_REGEN_RATE);
+    }
+    lastEnergyTime = now;
+}
+
+// ============================================================
+// СОХРАНЕНИЕ НА УСТРОЙСТВО
+// ============================================================
+function saveLocal() {
+    localStorage.setItem('cv_uid', userId || '');
+    localStorage.setItem('cv_nick', userNickname);
+    localStorage.setItem('cv_clicks', clicks.toString());
+    localStorage.setItem('cv_level', level.toString());
+    localStorage.setItem('cv_energy', energy.toString());
+    localStorage.setItem('cv_lastEnergy', Date.now().toString());
+}
+
+// ============================================================
+// CANVAS: РИСОВАНИЕ ИКОНОК
+// ============================================================
+function drawLogo(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2, r = w * 0.38;
+
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 6 + (Math.PI / 3) * i;
+        const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, '#7c5cfc'); g.addColorStop(1, '#06d6a0');
+    ctx.fillStyle = g; ctx.fill();
+
+    ctx.save(); ctx.translate(cx, cy);
+    const s = r * 0.45;
+    ctx.beginPath();
+    ctx.moveTo(-s*0.4, -s*0.6); ctx.lineTo(s*0.6, s*0.1);
+    ctx.lineTo(s*0.05, s*0.1); ctx.lineTo(s*0.05, s*0.6);
+    ctx.lineTo(-s*0.2, s*0.6); ctx.lineTo(-s*0.2, s*0.1);
+    ctx.lineTo(-s*0.55, s*0.1); ctx.closePath();
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.restore();
+}
+
+function drawUserIcon(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const cx = w/2, cy = h/2;
+    ctx.beginPath(); ctx.arc(cx, cy, w*0.42, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(124,92,252,0.3)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy-h*0.08, w*0.14, 0, Math.PI*2);
+    ctx.fillStyle = '#a78bfa'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy+h*0.28, w*0.22, Math.PI, 0);
+    ctx.fillStyle = '#a78bfa'; ctx.fill();
+}
+
+function drawTrophy(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const g = ctx.createLinearGradient(0,0,w,h);
+    g.addColorStop(0,'#FFD700'); g.addColorStop(1,'#FFA500');
+    ctx.fillStyle = g;
+
+    ctx.beginPath();
+    ctx.moveTo(w*0.2,h*0.15); ctx.lineTo(w*0.8,h*0.15);
+    ctx.lineTo(w*0.7,h*0.55);
+    ctx.quadraticCurveTo(w*0.5,h*0.72,w*0.3,h*0.55);
+    ctx.closePath(); ctx.fill();
+
+    ctx.fillRect(w*0.4,h*0.6,w*0.2,h*0.15);
+
+    ctx.beginPath();
+    ctx.roundRect(w*0.25,h*0.75,w*0.5,h*0.1,3);
+    ctx.fill();
+
+    ctx.strokeStyle = g; ctx.lineWidth = w*0.06; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(w*0.12,h*0.35,w*0.1,-Math.PI*0.5,Math.PI*0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(w*0.88,h*0.35,w*0.1,Math.PI*0.7,Math.PI*1.5); ctx.stroke();
+}
+
+function drawChatBubble(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#7c5cfc';
+    ctx.beginPath();
+    ctx.roundRect(w*0.1,h*0.1,w*0.8,h*0.55,w*0.12);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(w*0.25,h*0.65); ctx.lineTo(w*0.15,h*0.85); ctx.lineTo(w*0.45,h*0.65);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff';
+    [0.35,0.5,0.65].forEach(px => {
+        ctx.beginPath(); ctx.arc(w*px,h*0.38,w*0.05,0,Math.PI*2); ctx.fill();
+    });
+}
+
+function drawSendArrow(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.moveTo(w*0.1,h*0.45); ctx.lineTo(w*0.9,h*0.15);
+    ctx.lineTo(w*0.55,h*0.85); ctx.lineTo(w*0.45,h*0.55);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath();
+    ctx.moveTo(w*0.45,h*0.55); ctx.lineTo(w*0.9,h*0.15);
+    ctx.lineTo(w*0.55,h*0.85); ctx.closePath(); ctx.fill();
+}
+
+function drawBolt(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const g = ctx.createLinearGradient(0,0,w,h);
+    g.addColorStop(0,'#FFD700'); g.addColorStop(1,'#FFA500');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(w*0.55,h*0.05); ctx.lineTo(w*0.2,h*0.5);
+    ctx.lineTo(w*0.45,h*0.5); ctx.lineTo(w*0.35,h*0.95);
+    ctx.lineTo(w*0.8,h*0.42); ctx.lineTo(w*0.55,h*0.42);
+    ctx.lineTo(w*0.65,h*0.05); ctx.closePath(); ctx.fill();
+}
+
+function drawStar(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const cx = w/2, cy = h/2, or = w*0.4, ir = w*0.18;
+    const g = ctx.createLinearGradient(0,0,w,h);
+    g.addColorStop(0,'#06d6a0'); g.addColorStop(1,'#06f0b0');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+        const a = -Math.PI/2 + (Math.PI/5)*i;
+        const r = i%2===0 ? or : ir;
+        const x = cx+r*Math.cos(a), y = cy+r*Math.sin(a);
+        i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.closePath(); ctx.fill();
+}
+
+// ============================================================
+// КНОПКА КЛИКА — Canvas анимация
+// ============================================================
+function drawClickButton() {
+    const canvas = document.getElementById('click-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const cx = w/2, cy = h/2, baseR = w*0.38;
+    const r = baseR * clickBtnScale;
+    clickBtnPulse += 0.03;
+    const pulseR = r + Math.sin(clickBtnPulse)*4 + 8;
+
+    // Свечение
+    const glow = ctx.createRadialGradient(cx,cy,r*0.5,cx,cy,r*1.6);
+    glow.addColorStop(0,'rgba(124,92,252,0.15)');
+    glow.addColorStop(1,'rgba(124,92,252,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(cx,cy,r*1.6,0,Math.PI*2); ctx.fill();
+
+    // Пульсирующее кольцо
+    ctx.beginPath(); ctx.arc(cx,cy,pulseR,0,Math.PI*2);
+    ctx.strokeStyle = `rgba(124,92,252,${0.15+Math.sin(clickBtnPulse)*0.1})`;
+    ctx.lineWidth = 2; ctx.stroke();
+
+    // Основной круг
+    const mg = ctx.createRadialGradient(cx-r*0.3,cy-r*0.3,0,cx,cy,r);
+    mg.addColorStop(0,'#9b7bfc'); mg.addColorStop(0.5,'#7c5cfc'); mg.addColorStop(1,'#5a3ce0');
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fillStyle = mg; ctx.fill();
+
+    // Блик
+    const sg = ctx.createRadialGradient(cx-r*0.15,cy-r*0.2,0,cx-r*0.15,cy-r*0.2,r*0.65);
+    sg.addColorStop(0,'rgba(255,255,255,0.15)');
+    sg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.beginPath(); ctx.arc(cx-r*0.15,cy-r*0.2,r*0.65,0,Math.PI*2);
+    ctx.fillStyle = sg; ctx.fill();
+
+    // Текст
+    ctx.fillStyle = '#fff';
+    ctx.font = `900 ${Math.round(r*0.32)}px 'Inter',sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 8;
+    ctx.fillText('КЛИК', cx, cy);
+    ctx.shadowBlur = 0;
+
+    // Рамка по энергии
+    const ep = energy / MAX_ENERGY;
+    let bc;
+    if (ep > 0.5) bc = 'rgba(6,214,160,0.5)';
+    else if (ep > 0.2) bc = 'rgba(255,209,102,0.5)';
+    else bc = 'rgba(255,107,107,0.5)';
+    ctx.beginPath(); ctx.arc(cx,cy,r+3,0,Math.PI*2);
+    ctx.strokeStyle = bc; ctx.lineWidth = 3; ctx.stroke();
+
+    requestAnimationFrame(drawClickButton);
+}
+
+// ============================================================
+// ЧАСТИЦЫ
+// ============================================================
+function spawnParticles(x, y) {
+    const n = 5 + Math.floor(Math.random()*4);
+    for (let i = 0; i < n; i++) {
+        const a = Math.random()*Math.PI*2;
+        const sp = 2 + Math.random()*4;
+        particles.push({
+            x, y,
+            vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
+            life: 1, decay: 0.015+Math.random()*0.02,
+            size: 2+Math.random()*4,
+            color: Math.random()>0.5 ? '#7c5cfc' : '#06d6a0'
+        });
+    }
+}
+
+function updateParticles() {
+    const canvas = document.getElementById('particles-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = particles.length-1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life -= p.decay;
+        if (p.life <= 0) { particles.splice(i, 1); continue; }
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size*p.life, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(updateParticles);
+}
+
+// ============================================================
+// ФОН РЕГИСТРАЦИИ
+// ============================================================
+function initRegBg() {
+    const c = document.getElementById('reg-bg-canvas');
+    const ctx = c.getContext('2d');
+    let dots = [];
+    function resize() { c.width = window.innerWidth; c.height = window.innerHeight; }
+    resize(); window.addEventListener('resize', resize);
+    for (let i = 0; i < 70; i++) {
+        dots.push({
+            x: Math.random()*c.width, y: Math.random()*c.height,
+            vx: (Math.random()-0.5)*0.5, vy: (Math.random()-0.5)*0.5,
+            r: 1.5+Math.random()*2
+        });
+    }
+    function anim() {
+        const regEl = document.getElementById('registration-screen');
+        if (regEl && regEl.style.display !== 'none' && regEl.offsetParent !== null) {
+            ctx.clearRect(0, 0, c.width, c.height);
+            for (let i = 0; i < dots.length; i++) {
+                for (let j = i+1; j < dots.length; j++) {
+                    const dx = dots[i].x-dots[j].x, dy = dots[i].y-dots[j].y;
+                    const d = Math.sqrt(dx*dx+dy*dy);
+                    if (d < 140) {
+                        ctx.beginPath(); ctx.moveTo(dots[i].x,dots[i].y); ctx.lineTo(dots[j].x,dots[j].y);
+                        ctx.strokeStyle = `rgba(124,92,252,${0.15*(1-d/140)})`;
+                        ctx.lineWidth = 0.8; ctx.stroke();
+                    }
+                }
+            }
+            dots.forEach(d => {
+                d.x += d.vx; d.y += d.vy;
+                if (d.x<0||d.x>c.width) d.vx*=-1;
+                if (d.y<0||d.y>c.height) d.vy*=-1;
+                ctx.beginPath(); ctx.arc(d.x,d.y,d.r,0,Math.PI*2);
+                ctx.fillStyle = 'rgba(124,92,252,0.4)'; ctx.fill();
+            });
+        }
+        requestAnimationFrame(anim);
+    }
+    anim();
+}
+
+// ============================================================
+// РЕГИСТРАЦИЯ
+// ============================================================
+async function register() {
+    const input = document.getElementById('nickname-input');
+    const error = document.getElementById('reg-error');
+    const btn = document.getElementById('reg-btn');
+    const nickname = input.value.trim();
+    error.textContent = '';
+
+    if (!nickname) { error.textContent = 'Введите никнейм'; return; }
+    if (nickname.length < 2) { error.textContent = 'Минимум 2 символа'; return; }
+    if (!/^[a-zA-Z0-9_а-яА-ЯёЁ]+$/.test(nickname)) {
+        error.textContent = 'Только буквы, цифры и подчёркивания'; return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Загрузка...';
+
+    try {
+        // Проверка занятости никнейма
+        const snap = await db.ref('nicknames/' + nickname.toLowerCase()).once('value');
+        if (snap.exists() && snap.val() !== userId) {
+            error.textContent = 'Этот никнейм уже занят';
+            btn.disabled = false; btn.textContent = 'Начать игру'; return;
+        }
+
+        // Если нет ID — создать
+        if (!userId) {
+            userId = db.ref('users').push().key;
+        }
+
+        // Проверить есть ли данные на сервере
+        const userSnap = await db.ref('users/' + userId).once('value');
+        if (userSnap.exists()) {
+            const d = userSnap.val();
+            // Берём максимум между локальными и серверными данными
+            clicks = Math.max(clicks, d.clicks || 0);
+            level = Math.max(level, d.level || 1);
+        }
+
+        userNickname = nickname;
+
+        // Сохранить на сервер
+        await db.ref('users/' + userId).set({
+            nickname, clicks, level,
+            lastActive: firebase.database.ServerValue.TIMESTAMP
+        });
+        await db.ref('nicknames/' + nickname.toLowerCase()).set(userId);
+
+        // Сохранить локально
+        saveLocal();
+        startGame();
+    } catch (e) {
+        console.error(e);
+        error.textContent = 'Ошибка подключения. Попробуйте снова.';
+        btn.disabled = false; btn.textContent = 'Начать игру';
+    }
+}
+
+// ============================================================
+// ЗАПУСК ИГРЫ
+// ============================================================
+function startGame() {
+    document.getElementById('registration-screen').style.display = 'none';
+    document.getElementById('game-screen').style.display = 'flex';
+    document.getElementById('header-nickname').textContent = userNickname;
+
+    drawLogo(document.getElementById('header-logo'));
+    drawUserIcon(document.getElementById('header-user-icon'));
+    drawTrophy(document.getElementById('trophy-icon'));
+    drawChatBubble(document.getElementById('chat-icon'));
+    drawSendArrow(document.getElementById('send-icon'));
+    drawBolt(document.getElementById('energy-icon'));
+    drawStar(document.getElementById('level-up-star-canvas'));
+
+    restoreOfflineEnergy();
+    updateUI();
+    drawClickButton();
+    updateParticles();
+    startEnergyRegen();
+    listenLeaderboard();
+    listenChat();
+    setupClick();
+    setInterval(saveToFirebase, 15000);
+    setInterval(saveLocal, 3000);
+}
+
+// ============================================================
+// ОБРАБОТКА КЛИКА
+// ============================================================
+function setupClick() {
+    const canvas = document.getElementById('click-canvas');
+
+    function doClick(e) {
+        e.preventDefault();
+        if (energy < ENERGY_COST) return;
+
+        energy -= ENERGY_COST;
+        clicks++;
+
+        const newLvl = Math.floor(clicks / CLICKS_PER_LEVEL) + 1;
+        if (newLvl > level) { level = newLvl; showLevelUp(level); }
+
+        clickBtnScale = 0.88;
+        setTimeout(() => { clickBtnScale = 1; }, 100);
+
+        const pc = document.getElementById('particles-canvas');
+        spawnParticles(pc.width/2 + (Math.random()-0.5)*40, pc.height/2 + (Math.random()-0.5)*40);
+
+        let cx, cy;
+        if (e.changedTouches && e.changedTouches.length > 0) {
+            cx = e.changedTouches[0].clientX; cy = e.changedTouches[0].clientY;
+        } else if (e.touches && e.touches.length > 0) {
+            cx = e.touches[0].clientX; cy = e.touches[0].clientY;
+        } else {
+            cx = e.clientX; cy = e.clientY;
+        }
+        showFeedback(cx, cy);
+        updateUI();
+        debounceSave();
+    }
+
+    canvas.addEventListener('click', doClick);
+    canvas.addEventListener('touchstart', doClick, { passive: false });
+}
+
+function showFeedback(x, y) {
+    const el = document.createElement('div');
+    el.className = 'click-feedback';
+    el.textContent = '+1';
+    el.style.left = (x + (Math.random()-0.5)*30) + 'px';
+    el.style.top = (y - 10) + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 800);
+}
+
+// ============================================================
+// ЭНЕРГИЯ
+// ============================================================
+function startEnergyRegen() {
+    setInterval(() => {
+        if (energy < MAX_ENERGY) {
+            energy = Math.min(MAX_ENERGY, energy + ENERGY_REGEN_RATE * 0.1);
+            updateEnergyUI();
+        }
+    }, 100);
+}
+
+function updateEnergyUI() {
+    const p = energy / MAX_ENERGY;
+    const bar = document.getElementById('energy-bar');
+    const text = document.getElementById('energy-text');
+    bar.style.width = (p*100) + '%';
+    text.textContent = Math.floor(energy) + ' / ' + MAX_ENERGY;
+    let c;
+    if (p > 0.5) { c = 'linear-gradient(90deg,#06d6a0,#04b890)'; text.style.color = 'var(--energy-high)'; }
+    else if (p > 0.2) { c = 'linear-gradient(90deg,#ffd166,#e6b800)'; text.style.color = 'var(--energy-mid)'; }
+    else { c = 'linear-gradient(90deg,#ff6b6b,#ee5a5a)'; text.style.color = 'var(--energy-low)'; }
+    bar.style.background = c;
+}
+
+// ============================================================
+// ОБНОВЛЕНИЕ UI
+// ============================================================
+function updateUI() {
+    document.getElementById('clicks-display').textContent = formatNum(clicks);
+    document.getElementById('level-display').textContent = level;
+    const cil = clicks % CLICKS_PER_LEVEL;
+    document.getElementById('level-bar').style.width = (cil/CLICKS_PER_LEVEL*100) + '%';
+    document.getElementById('level-progress-label').textContent = `До следующего уровня: ${cil} / ${CLICKS_PER_LEVEL}`;
+    updateEnergyUI();
+}
+
+function formatNum(n) {
+    if (n >= 1000000) return (n/1000000).toFixed(1) + 'М';
+    if (n >= 1000) return (n/1000).toFixed(1) + 'К';
+    return n.toString();
+}
+
+// ============================================================
+// ПОВЫШЕНИЕ УРОВНЯ
+// ============================================================
+let levelUpTimeout = null;
+function showLevelUp(lvl) {
+    const ov = document.getElementById('level-up-overlay');
+    document.getElementById('level-up-num').textContent = lvl;
+    drawStar(document.getElementById('level-up-star-canvas'));
+    ov.classList.add('show');
+    if (levelUpTimeout) clearTimeout(levelUpTimeout);
+    levelUpTimeout = setTimeout(() => ov.classList.remove('show'), 2200);
+}
+
+document.getElementById('level-up-overlay').addEventListener('click', function() {
+    this.classList.remove('show');
+});
+
+// ============================================================
+// СОХРАНЕНИЕ НА СЕРВЕР
+// ============================================================
+function debounceSave() {
+    if (saveDebounce) clearTimeout(saveDebounce);
+    saveDebounce = setTimeout(() => { saveToFirebase(); saveLocal(); }, 1200);
+}
+
+function saveToFirebase() {
+    if (!userId) return;
+    db.ref('users/' + userId).update({
+        clicks, level, nickname: userNickname,
+        lastActive: firebase.database.ServerValue.TIMESTAMP
+    }).catch(console.error);
+}
+
+// ============================================================
+// ТАБЛИЦА ЛИДЕРОВ
+// ============================================================
+function listenLeaderboard() {
+    db.ref('users').orderByChild('clicks').limitToLast(10).on('value', snap => {
+        const list = document.getElementById('leaderboard-list');
+        const users = [];
+        snap.forEach(ch => users.push({ id: ch.key, ...ch.val() }));
+        users.sort((a, b) => b.clicks - a.clicks);
+
+        list.innerHTML = '';
+        users.forEach((u, i) => {
+            const rank = i + 1;
+            const isMe = u.id === userId;
+            let rc = 'rank-other';
+            if (rank===1) rc='rank-1'; else if (rank===2) rc='rank-2'; else if (rank===3) rc='rank-3';
+
+            const item = document.createElement('div');
+            item.className = 'lb-item' + (isMe ? ' is-me' : '');
+            item.innerHTML = `
+                <div class="lb-rank ${rc}">${rank}</div>
+                <div class="lb-info">
+                    <div class="lb-name">${esc(u.nickname)}</div>
+                    <div class="lb-clicks">${formatNum(u.clicks)} кликов</div>
+                </div>
+                <div class="lb-level">Ур.${u.level}</div>
+            `;
+            list.appendChild(item);
+        });
+    });
+}
+
+// ============================================================
+// ЧАТ
+// ============================================================
+function listenChat() {
+    db.ref('chat').orderByChild('timestamp').limitToLast(50).on('child_added', snap => {
+        const m = snap.val();
+        addMsg(m.nickname, m.text, m.timestamp);
+    });
+}
+
+function addMsg(nick, text, ts) {
+    const c = document.getElementById('chat-messages');
+    const d = document.createElement('div');
+    d.className = 'chat-msg';
+    const t = new Date(ts);
+    const time = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
+    d.innerHTML = `
+        <div class="chat-msg-header">
+            <span class="chat-msg-name">${esc(nick)}</span>
+            <span class="chat-msg-time">${time}</span>
+        </div>
+        <div class="chat-msg-text">${esc(text)}</div>
+    `;
+    c.appendChild(d);
+    c.scrollTop = c.scrollHeight;
+    while (c.children.length > 100) c.removeChild(c.firstChild);
+}
+
+function sendChat() {
+    const inp = document.getElementById('chat-input');
+    const text = inp.value.trim();
+    if (!text || text.length > 200) return;
+    db.ref('chat').push({
+        nickname: userNickname, text,
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        userId
+    }).catch(console.error);
+    inp.value = '';
+}
+
+document.getElementById('chat-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendChat();
+});
+
+// ============================================================
+// УТИЛИТЫ
+// ============================================================
+function esc(t) {
+    const d = document.createElement('div');
+    d.textContent = t;
+    return d.innerHTML;
+}
+
+// ============================================================
+// АВТОЛОГИН
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+    initRegBg();
+    drawLogo(document.getElementById('reg-logo'));
+
+    const savedNick = localStorage.getItem('cv_nick');
+    const savedUid = localStorage.getItem('cv_uid');
+
+    if (savedNick && savedUid) {
+        userId = savedUid;
+        userNickname = savedNick;
+
+        // Попытка подгрузить данные с сервера, но не блокируем запуск
+        db.ref('users/' + userId).once('value').then(snap => {
+            if (snap.exists()) {
+                const d = snap.val();
+                // Синхронизация: берём максимум
+                clicks = Math.max(clicks, d.clicks || 0);
+                level = Math.max(level, d.level || 1);
+                userNickname = d.nickname || savedNick;
+                saveLocal();
+            }
+            startGame();
+        }).catch(() => {
+            // Офлайн — всё равно запускаем
+            startGame();
+        });
+    } else {
+        // Показать регистрацию
+        document.getElementById('nickname-input').focus();
+    }
+});
+
+document.getElementById('nickname-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') register();
+});
+
+// Сохранить при закрытии
+window.addEventListener('beforeunload', () => {
+    saveLocal();
+    saveToFirebase();
+});
+
+// Блокируем скролл на мобильных
+document.addEventListener('touchmove', e => {
+    if (document.getElementById('game-screen').style.display === 'flex') {
+        const t = e.target;
+        if (!t.closest('.leaderboard-list') && !t.closest('.chat-messages')) {
+            e.preventDefault();
+        }
+    }
+}, { passive: false });
+</script>
+</body>
+</html>
