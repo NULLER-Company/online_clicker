@@ -38,7 +38,7 @@ const STATE = {
     energy: 100,
     maxEnergy: 100,
     energyCost: 1,
-    energyRegen: 2,          // 2 ед/сек
+    energyRegen: 4,          // 2 ед/сек
     clicksPerLevel: 1000,
     multiplier: 1,
 
