@@ -1,1231 +1,831 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Clicker Online — Кликай, соревнуйся, побеждай!</title>
-    
-    <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-    <link rel="manifest" href="manifest.json">
-    <meta property="og:image" content="icon-512.png">
-    <meta name="theme-color" content="#7c5cfc">
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    
-    <style>
-        *, *::before, *::after {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --bg-primary: #060614;
-            --bg-secondary: #0d0d2b;
-            --bg-card: #131340;
-            --bg-card-hover: #1a1a50;
-            --accent: #7c5cfc;
-            --accent-light: #a78bfa;
-            --accent-dark: #5a3ce0;
-            --accent-glow: rgba(124, 92, 252, 0.35);
-            --accent-secondary: #06d6a0;
-            --accent-secondary-dark: #04b890;
-            --accent-tertiary: #f72585;
-            --accent-gold: #ffd700;
-            --text-primary: #eeeeff;
-            --text-secondary: #9896b0;
-            --text-muted: #5a587a;
-            --border: rgba(124, 92, 252, 0.15);
-            --border-light: rgba(124, 92, 252, 0.08);
-            --danger: #ff4757;
-            --danger-dark: #c0392b;
-            --warning: #ffa502;
-            --success: #2ed573;
-            --glass: rgba(19, 19, 64, 0.75);
-            --glass-border: rgba(255, 255, 255, 0.06);
-            --radius-sm: 10px;
-            --radius-md: 14px;
-            --radius-lg: 20px;
-            --radius-xl: 24px;
-            --shadow-sm: 0 2px 10px rgba(0,0,0,0.3);
-            --shadow-md: 0 8px 30px rgba(0,0,0,0.4);
-            --shadow-lg: 0 20px 60px rgba(0,0,0,0.5);
-            --shadow-glow: 0 0 40px var(--accent-glow);
-            --transition-fast: 0.15s ease;
-            --transition-normal: 0.3s ease;
-            --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        html, body {
-            height: 100%;
-            overflow: hidden;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            -webkit-tap-highlight-color: transparent;
-            user-select: none;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        body {
-            display: flex;
-            flex-direction: column;
-            background-image:
-                radial-gradient(ellipse at 20% 50%, rgba(124, 92, 252, 0.05) 0%, transparent 60%),
-                radial-gradient(ellipse at 80% 20%, rgba(6, 214, 160, 0.04) 0%, transparent 50%),
-                radial-gradient(ellipse at 50% 100%, rgba(247, 37, 133, 0.03) 0%, transparent 40%);
-        }
-
-        .gradient-text {
-            background: linear-gradient(135deg, var(--accent-light), var(--accent-secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--accent-glow); border-radius: 10px; }
-
-        /* ЭКРАН ЗАГРУЗКИ */
-        #loading-screen {
-            position: fixed; inset: 0; z-index: 9999;
-            display: flex; align-items: center; justify-content: center;
-            background: var(--bg-primary);
-        }
-
-        .loader-container {
-            position: relative;
-            width: 100px; height: 100px;
-            display: flex; align-items: center; justify-content: center;
-        }
-
-        .loader-ring {
-            position: absolute;
-            width: 100%; height: 100%;
-            border: 3px solid transparent;
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: loaderSpin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-        }
-
-        .loader-ring.delay-1 {
-            width: 75%; height: 75%;
-            border-top-color: var(--accent-secondary);
-            animation-delay: -0.15s;
-        }
-
-        .loader-ring.delay-2 {
-            width: 50%; height: 50%;
-            border-top-color: var(--accent-tertiary);
-            animation-delay: -0.3s;
-        }
-
-        .loader-text {
-            position: absolute;
-            bottom: -40px;
-            font-size: 14px;
-            color: var(--text-muted);
-            font-weight: 600;
-            letter-spacing: 2px;
-            animation: loaderPulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes loaderSpin {
-            0% { transform: rotate(0); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @keyframes loaderPulse {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 1; }
-        }
-
-        /* РЕГИСТРАЦИЯ */
-        #registration-screen {
-            position: fixed; inset: 0; z-index: 1000;
-            display: flex; align-items: center; justify-content: center;
-            background: var(--bg-primary);
-        }
-
-        #reg-bg-canvas {
-            position: absolute; inset: 0;
-            width: 100%; height: 100%;
-            opacity: 0.6;
-        }
-
-        .reg-container {
-            position: relative; z-index: 1;
-            background: var(--glass);
-            backdrop-filter: blur(40px) saturate(1.5);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-xl);
-            padding: 45px 35px 35px;
-            width: 92%; max-width: 420px;
-            text-align: center;
-            box-shadow: var(--shadow-lg), var(--shadow-glow);
-            animation: regAppear 0.8s var(--transition-slow) both;
-        }
-
-        @keyframes regAppear {
-            from { opacity: 0; transform: translateY(30px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .reg-icon-wrapper {
-            position: relative;
-            width: 90px; height: 90px;
-            margin: 0 auto 20px;
-        }
-
-        .reg-icon-glow {
-            position: absolute; inset: -15px;
-            border-radius: 50%;
-            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-            animation: iconGlow 3s ease-in-out infinite;
-        }
-
-        @keyframes iconGlow {
-            0%, 100% { opacity: 0.5; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.15); }
-        }
-
-        .reg-icon-wrapper canvas {
-            position: relative; z-index: 1;
-            width: 90px; height: 90px;
-        }
-
-        .reg-container h1 {
-            font-size: 30px; font-weight: 900;
-            color: #fff;
-            margin-bottom: 6px;
-            letter-spacing: -0.5px;
-        }
-
-        .reg-subtitle {
-            color: var(--text-secondary);
-            font-size: 14px;
-            margin-bottom: 28px;
-            letter-spacing: 2px;
-            font-weight: 500;
-        }
-
-        .reg-features {
-            display: flex; gap: 8px;
-            margin-bottom: 25px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .reg-feature {
-            background: rgba(124, 92, 252, 0.08);
-            border: 1px solid var(--border);
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 12px; font-weight: 600;
-            color: var(--text-secondary);
-            display: flex; align-items: center; gap: 6px;
-        }
-
-        .input-wrapper {
-            position: relative;
-            margin-bottom: 18px;
-        }
-
-        .input-wrapper input {
-            width: 100%;
-            padding: 16px 20px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 2px solid var(--border);
-            border-radius: var(--radius-md);
-            color: #fff;
-            font-size: 16px;
-            font-weight: 600;
-            outline: none;
-            text-align: center;
-            letter-spacing: 0.5px;
-            transition: var(--transition-normal);
-        }
-
-        .input-wrapper input::placeholder {
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .input-wrapper input:focus {
-            border-color: var(--accent);
-            background: rgba(124, 92, 252, 0.06);
-            box-shadow: 0 0 20px rgba(124, 92, 252, 0.15);
-        }
-
-        .reg-btn {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-            border: none;
-            border-radius: var(--radius-md);
-            color: white;
-            font-size: 16px;
-            font-weight: 800;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: var(--transition-normal);
-            position: relative;
-            overflow: hidden;
-            letter-spacing: 0.5px;
-        }
-
-        .reg-btn::before {
-            content: '';
-            position: absolute; inset: 0;
-            background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
-            transform: translateX(-100%);
-            transition: 0.6s;
-        }
-
-        .reg-btn:hover::before { transform: translateX(100%); }
-        .reg-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124, 92, 252, 0.4); }
-        .reg-btn:active { transform: translateY(0) scale(0.98); }
-
-        .btn-icon {
-            font-size: 20px;
-            transition: var(--transition-normal);
-        }
-
-        .reg-btn:hover .btn-icon { transform: translateX(4px); }
-
-        #reg-error {
-            color: var(--danger);
-            font-size: 13px;
-            margin-top: 12px;
-            min-height: 18px;
-            font-weight: 600;
-            transition: var(--transition-normal);
-        }
-
-        /* ИГРА */
-        #game-screen {
-            flex-direction: column;
-            height: 100dvh;
-            animation: screenFadeIn 0.5s ease both;
-        }
-
-        @keyframes screenFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .game-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 16px;
-            background: rgba(13, 13, 43, 0.92);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border-light);
-            flex-shrink: 0;
-            z-index: 50;
-            min-height: 56px;
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .header-logo-wrap {
-            width: 34px; height: 34px;
-            display: flex; align-items: center; justify-content: center;
-        }
-
-        .header-title-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header-title {
-            font-size: 16px;
-            font-weight: 800;
-            color: #fff;
-            line-height: 1.2;
-        }
-
-        .header-online {
-            font-size: 11px;
-            color: var(--accent-secondary);
-            font-weight: 600;
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .header-streak {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            background: rgba(255, 165, 2, 0.12);
-            padding: 4px 10px;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 165, 2, 0.2);
-        }
-
-        .streak-icon { font-size: 14px; }
-        .streak-val { font-size: 13px; font-weight: 800; color: var(--warning); }
-
-        .header-user {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(124, 92, 252, 0.1);
-            padding: 5px 12px 5px 5px;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border);
-            cursor: pointer;
-            transition: var(--transition-fast);
-        }
-        
-        .header-user:hover {
-            background: rgba(124, 92, 252, 0.2);
-        }
-
-        .header-avatar {
-            width: 30px; height: 30px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
-            display: flex; align-items: center; justify-content: center;
-            font-size: 14px; font-weight: 900;
-            color: #fff;
-        }
-
-        .header-user-info {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header-nickname {
-            font-size: 13px;
-            font-weight: 700;
-            color: #fff;
-            line-height: 1.2;
-        }
-
-        .header-level-badge {
-            font-size: 10px;
-            font-weight: 700;
-            color: var(--accent-light);
-        }
-
-        /* ТОСТЫ */
-        #toast-container {
-            position: fixed;
-            top: 70px; right: 16px;
-            z-index: 9000;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            pointer-events: none;
-            max-width: 340px;
-        }
-
-        .toast {
-            padding: 12px 18px;
-            border-radius: var(--radius-md);
-            backdrop-filter: blur(20px);
-            font-size: 13px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            animation: toastIn 0.4s ease both;
-            box-shadow: var(--shadow-md);
-            pointer-events: auto;
-        }
-
-        .toast-success { background: rgba(46, 213, 115, 0.15); border: 1px solid rgba(46, 213, 115, 0.3); color: var(--success); }
-        .toast-warning { background: rgba(255, 165, 2, 0.15); border: 1px solid rgba(255, 165, 2, 0.3); color: var(--warning); }
-        .toast-danger { background: rgba(255, 71, 87, 0.15); border: 1px solid rgba(255, 71, 87, 0.3); color: var(--danger); }
-        .toast-info { background: rgba(124, 92, 252, 0.15); border: 1px solid rgba(124, 92, 252, 0.3); color: var(--accent-light); }
-
-        .toast-icon { font-size: 18px; }
-
-        .toast.removing { animation: toastOut 0.3s ease both; }
-
-        @keyframes toastIn { from { opacity: 0; transform: translateX(50px) scale(0.9); } to { opacity: 1; transform: translateX(0) scale(1); } }
-        @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(80px); } }
-
-        /* БАННЕРЫ */
-        .penalty-banner {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 8px 16px;
-            font-size: 13px;
-            font-weight: 700;
-            z-index: 40;
-            flex-shrink: 0;
-            animation: bannerSlide 0.4s ease both;
-            background: linear-gradient(90deg, rgba(255, 71, 87, 0.2), rgba(255, 71, 87, 0.1));
-            border-bottom: 1px solid rgba(255, 71, 87, 0.3);
-            color: var(--danger);
-        }
-
-        @keyframes bannerSlide { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        .penalty-icon { font-size: 18px; }
-        .penalty-timer {
-            background: rgba(0,0,0,0.3);
-            padding: 2px 10px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-        /* ОСНОВНОЙ КОНТЕЙНЕР */
-        .game-main {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-            padding: 10px;
-            gap: 10px;
-            position: relative;
-        }
-
-        .panel {
-            background: var(--bg-card);
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            transition: var(--transition-normal);
-        }
-
-        .panel-header {
-            padding: 14px 16px;
-            font-size: 14px;
-            font-weight: 700;
-            border-bottom: 1px solid var(--border-light);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-shrink: 0;
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        .panel-header-icon { font-size: 18px; }
-        .panel-header-badge {
-            margin-left: auto;
-            background: var(--accent);
-            color: #fff;
-            font-size: 11px;
-            font-weight: 800;
-            padding: 2px 8px;
-            border-radius: 10px;
-            min-width: 24px;
-            text-align: center;
-        }
-
-        /* ЦЕНТР - КЛИКЕР */
-        .panel-center {
-            flex: 1;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 15px 10px;
-            background: radial-gradient(ellipse at center 60%, rgba(124, 92, 252, 0.04) 0%, transparent 60%);
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .stats-row {
-            display: flex;
-            gap: 8px;
-            width: 100%;
-            max-width: 380px;
-            padding: 0 5px;
-        }
-
-        .stat-card {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius-md);
-            padding: 10px 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: var(--transition-normal);
-            min-width: 0; /* Фикс для обрезки длинных чисел */
-        }
-
-        .stat-icon {
-            font-size: 20px;
-            width: 36px; height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(124, 92, 252, 0.1);
-            border-radius: var(--radius-sm);
-            flex-shrink: 0;
-        }
-
-        .stat-clicks .stat-icon { background: rgba(6, 214, 160, 0.1); }
-        .stat-level .stat-icon { background: rgba(255, 215, 0, 0.1); }
-        .stat-cps .stat-icon { background: rgba(247, 37, 133, 0.1); }
-
-        .stat-body { 
-            min-width: 0; 
-            flex: 1;
-        }
-
-        .stat-label {
-            font-size: 10px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-
-        /* Динамический размер чисел, чтобы не вылезали за края */
-        .stat-value {
-            font-size: clamp(14px, 4vw, 20px);
-            font-weight: 900;
-            color: #fff;
-            line-height: 1.1;
-            word-break: break-all;
-        }
-
-        .stat-value.level-val { color: var(--accent-gold); }
-        .stat-value.cps-val { color: var(--accent-tertiary); }
-
-        .clicker-area {
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 10px 0;
-            width: 100%;
-        }
-
-        /* КОНТЕЙНЕР ДЛЯ ВСПЛЫВАЮЩИХ СОБЫТИЙ (УДАЧА, КРИТ, КОМБО) */
-        #floating-events-container {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            pointer-events: none;
-            z-index: 100;
-            width: 100%;
-        }
-
-        .floating-event {
-            font-size: clamp(16px, 5vw, 24px);
-            font-weight: 900;
-            text-shadow: 0 0 10px currentColor, 0 2px 4px rgba(0,0,0,0.8);
-            animation: floatUpEvent 1.2s ease-out forwards;
-            margin-bottom: 5px;
-            white-space: nowrap;
-        }
-
-        @keyframes floatUpEvent {
-            0% { opacity: 0; transform: translateY(20px) scale(0.8); }
-            20% { opacity: 1; transform: translateY(0) scale(1.1); }
-            40% { transform: scale(1); }
-            100% { opacity: 0; transform: translateY(-30px); }
-        }
-
-        .clicker-rings {
-            position: absolute;
-            width: 300px; height: 300px;
-            pointer-events: none;
-        }
-
-        .ring {
-            position: absolute; inset: 0;
-            border: 2px solid transparent;
-            border-radius: 50%;
-            animation: ringRotate 8s linear infinite;
-        }
-
-        .ring-1 { border-top-color: rgba(124, 92, 252, 0.3); border-right-color: rgba(124, 92, 252, 0.15); }
-        .ring-2 { inset: 10px; border-bottom-color: rgba(6, 214, 160, 0.25); border-left-color: rgba(6, 214, 160, 0.1); animation-direction: reverse; animation-duration: 12s; }
-        .ring-3 { inset: 20px; border-top-color: rgba(247, 37, 133, 0.2); animation-duration: 16s; }
-
-        @keyframes ringRotate { from { transform: rotate(0); } to { transform: rotate(360deg); } }
-
-        #click-canvas {
-            width: 240px;
-            height: 240px;
-            cursor: pointer;
-            touch-action: none;
-            position: relative;
-            z-index: 2;
-            filter: drop-shadow(0 0 20px var(--accent-glow));
-            transition: filter var(--transition-fast);
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        #click-canvas.penalty-mode { filter: drop-shadow(0 0 20px rgba(255, 71, 87, 0.5)) hue-rotate(120deg); }
-
-        #particles-canvas {
-            position: absolute;
-            inset: -50px;
-            width: calc(100% + 100px);
-            height: calc(100% + 100px);
-            pointer-events: none;
-            z-index: 3;
-        }
-
-        .bars-container {
-            width: 100%;
-            max-width: 360px;
-            padding: 0 10px;
-            margin-top: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .bar-group { width: 100%; }
-        .bar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .bar-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--text-secondary); }
-        .bar-icon { font-size: 14px; }
-        .bar-value { font-size: 12px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-        .bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; overflow: hidden; position: relative; }
-        .bar-fill { height: 100%; border-radius: 10px; transition: width 0.15s ease; position: relative; }
-
-        #energy-bar { background: linear-gradient(90deg, var(--accent-secondary-dark), var(--accent-secondary)); }
-        #energy-bar.danger { background: linear-gradient(90deg, var(--danger-dark), var(--danger)); }
-        #energy-bar.penalty { background: linear-gradient(90deg, #444, #666); }
-        .level-fill { background: linear-gradient(90deg, var(--accent-dark), var(--accent-light)); }
-
-        .mini-achievements { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; justify-content: center; max-width: 360px; }
-        .mini-ach { background: rgba(255, 215, 0, 0.08); border: 1px solid rgba(255, 215, 0, 0.2); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; color: var(--accent-gold); display: flex; align-items: center; gap: 4px; animation: achAppear 0.5s ease both; }
-
-        @keyframes achAppear { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
-
-        /* ЛЕВАЯ ПАНЕЛЬ - ЛИДЕРЫ */
-        .panel-left { width: 280px; }
-        .leaderboard-list { flex: 1; overflow-y: auto; padding: 8px; -webkit-overflow-scrolling: touch; }
-        .lb-empty { text-align: center; color: var(--text-muted); margin-top: 30px; font-size: 13px; }
-
-        .lb-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-md); margin-bottom: 4px; background: rgba(255, 255, 255, 0.02); transition: var(--transition-fast); cursor: default; }
-        .lb-item.is-me { background: rgba(124, 92, 252, 0.1); border: 1px solid var(--border); }
-
-        .lb-rank { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; border-radius: var(--radius-sm); flex-shrink: 0; }
-        .rank-1 { background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; box-shadow: 0 2px 10px rgba(255, 215, 0, 0.3); }
-        .rank-2 { background: linear-gradient(135deg, #E0E0E0, #A0A0A0); color: #000; }
-        .rank-3 { background: linear-gradient(135deg, #CD7F32, #B8860B); color: #fff; }
-        .rank-other { background: rgba(255, 255, 255, 0.06); color: var(--text-muted); }
-
-        .lb-avatar { width: 30px; height: 30px; border-radius: var(--radius-sm); background: linear-gradient(135deg, var(--accent), var(--accent-secondary)); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: #fff; flex-shrink: 0; }
-        .lb-info { flex: 1; min-width: 0; }
-        .lb-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
-        .lb-clicks { font-size: 11px; color: var(--text-muted); font-weight: 500; }
-        .lb-level-badge { background: rgba(124, 92, 252, 0.2); color: var(--accent-light); font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; flex-shrink: 0; }
-        
-        .lb-online-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .lb-online-dot.online { background: var(--success); box-shadow: 0 0 6px var(--success); }
-        .lb-online-dot.offline { background: var(--text-muted); }
-
-        /* ПРАВАЯ ПАНЕЛЬ - ЧАТ */
-        .panel-right { width: 310px; }
-        .chat-rules-btn { margin-left: auto; cursor: pointer; font-size: 16px; opacity: 0.5; transition: var(--transition-fast); }
-        .chat-rules-btn:hover { opacity: 1; }
-
-        .chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 6px; -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
-        .chat-scroll-controls { display: flex; gap: 4px; padding: 4px 10px; border-top: 1px solid var(--border-light); justify-content: flex-end; background: rgba(0,0,0,0.1); }
-        .chat-scroll-btn { width: 32px; height: 32px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: var(--transition-fast); }
-        .chat-scroll-btn:hover { background: rgba(124, 92, 252, 0.15); color: var(--accent-light); }
-
-        .chat-system-msg { text-align: center; color: var(--text-muted); font-size: 12px; padding: 8px; font-style: italic; }
-
-        .chat-msg { padding: 8px 12px; border-radius: var(--radius-md); background: rgba(255, 255, 255, 0.03); animation: msgAppear 0.3s ease both; border-left: 3px solid var(--accent-dark); word-break: break-word; }
-        .chat-msg.my-msg { border-left-color: var(--accent-secondary); }
-
-        @keyframes msgAppear { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        .chat-msg-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
-        .chat-msg-name { font-size: 12px; font-weight: 700; color: var(--accent-light); }
-        .chat-msg-level { font-size: 10px; color: var(--text-muted); font-weight: 600; }
-        .chat-msg-time { font-size: 10px; color: var(--text-muted); }
-        .chat-msg-text { font-size: 13px; color: var(--text-primary); line-height: 1.45; }
-
-        .chat-input-area { padding: 10px; border-top: 1px solid var(--border-light); display: flex; gap: 8px; background: rgba(0, 0, 0, 0.1); }
-        .chat-input-area input { flex: 1; padding: 11px 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 14px; outline: none; }
-        .chat-input-area input:focus { border-color: var(--accent); background: rgba(124, 92, 252, 0.05); }
-        .chat-send-btn { width: 42px; height: 42px; background: var(--accent); border: none; border-radius: var(--radius-sm); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .chat-send-btn:active { transform: scale(0.95); }
-
-        /* МАГАЗИН */
-        .shop-content { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
-        .shop-balance { background: linear-gradient(135deg, rgba(6, 214, 160, 0.15), rgba(124, 92, 252, 0.15)); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px; text-align: center; }
-        .shop-balance-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; }
-        .shop-balance-value { font-size: clamp(20px, 6vw, 28px); font-weight: 900; color: var(--accent-secondary); text-shadow: 0 0 20px rgba(6, 214, 160, 0.4); word-break: break-all; line-height: 1; }
-        
-        .shop-items { display: flex; flex-direction: column; gap: 10px; }
-        .shop-item { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; }
-        .shop-item-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-        .shop-item-icon { font-size: 28px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: rgba(124, 92, 252, 0.1); border-radius: var(--radius-sm); flex-shrink: 0; }
-        .shop-item-info { flex: 1; min-width: 0; }
-        .shop-item-name { font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 3px; }
-        .shop-item-level { font-size: 11px; color: var(--text-muted); font-weight: 600; }
-        .shop-item-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4; }
-        .shop-item-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .shop-item-price { display: flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 900; color: var(--accent-gold); word-break: break-all;}
-        .shop-item-buy { padding: 8px 20px; background: linear-gradient(135deg, var(--accent-secondary), var(--accent-secondary-dark)); border: none; border-radius: var(--radius-sm); color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; }
-        .shop-item-buy:disabled { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); cursor: not-allowed; }
-        .shop-item.max-level { opacity: 0.6; }
-        .shop-item-max { color: var(--accent-gold); font-size: 12px; font-weight: 800; }
-
-        /* АРЕНА */
-        .arena-content { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch;}
-        .arena-top-bar { display: flex; gap: 8px; margin-bottom: 16px; }
-        .arena-btn { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: rgba(255,255,255,0.03); color: var(--text-primary); font-size: 13px; font-weight: 700; cursor: pointer; }
-        .arena-btn:active { transform: scale(0.96); }
-        
-        .arena-rooms-list { display: flex; flex-direction: column; gap: 8px; }
-        .arena-room-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; display: flex; align-items: center; gap: 12px; }
-        .arena-room-info { flex: 1; }
-        .arena-room-name { font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 4px; }
-        .arena-room-meta { font-size: 12px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 12px; }
-        .arena-room-join { padding: 8px 18px; background: linear-gradient(135deg, var(--accent), var(--accent-dark)); border: none; border-radius: var(--radius-sm); color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; }
-        .arena-room-join:disabled { opacity: 0.5; cursor: not-allowed; }
-        .arena-empty { text-align: center; color: var(--text-muted); padding: 40px 20px; font-size: 14px; }
-
-        .arena-room-screen { display: flex; flex-direction: column; height: 100%; }
-        .arena-room-header { padding: 12px 14px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
-        .arena-back-btn { padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 12px; font-weight: 700; cursor: pointer; }
-        .arena-room-title { font-size: 15px; font-weight: 800; color: #fff; }
-        .arena-room-bet-info { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--accent-gold); }
-        .arena-players-list { padding: 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;}
-        
-        .arena-player-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: var(--radius-md); border: 1px solid var(--border-light); }
-        .arena-player-row.is-me { background: rgba(124,92,252,0.1); border-color: var(--border); }
-        .arena-player-row.eliminated { opacity: 0.4; text-decoration: line-through; }
-        .arena-player-avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent-secondary)); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; color: #fff; flex-shrink: 0; }
-        .arena-player-name { flex: 1; font-size: 14px; font-weight: 700; color: #fff; }
-        .arena-player-status { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
-        .status-holding { background: rgba(46,213,115,0.2); color: var(--success); }
-        .status-lost { background: rgba(255,71,87,0.2); color: var(--danger); }
-        .status-winner { background: rgba(255,215,0,0.2); color: var(--accent-gold); }
-        .status-waiting { background: rgba(255,255,255,0.05); color: var(--text-muted); }
-
-        .arena-game-area { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-        .arena-hold-btn { width: 180px; height: 180px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 900; color: #fff; position: relative; outline: none; -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; -webkit-user-select: none; }
-        .arena-hold-btn.waiting { background: linear-gradient(135deg, #444, #333); }
-        .arena-hold-btn.ready { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); animation: holdPulseReady 1.5s infinite; }
-        .arena-hold-btn.holding { background: linear-gradient(135deg, var(--accent-secondary), var(--accent-secondary-dark)); transform: scale(0.92); box-shadow: 0 0 40px rgba(6,214,160,0.5); }
-        .arena-hold-btn.lost { background: linear-gradient(135deg, var(--danger), var(--danger-dark)); }
-        .arena-hold-btn.won { background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; }
-        @keyframes holdPulseReady { 0%, 100% { box-shadow: 0 0 20px rgba(124,92,252,0.3); } 50% { box-shadow: 0 0 40px rgba(124,92,252,0.6); } }
-        .arena-hold-sub { font-size: 12px; font-weight: 600; opacity: 0.8; }
-        .arena-timer { font-size: 24px; font-weight: 900; color: var(--accent-light); }
-        .arena-start-btn { padding: 12px 30px; background: linear-gradient(135deg, var(--accent-secondary), var(--accent-secondary-dark)); border: none; border-radius: var(--radius-md); color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; }
-        .arena-start-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        /* СОЗДАНИЕ КОМНАТЫ */
-        .create-room-form { text-align: left; }
-        .form-group { margin-bottom: 16px; }
-        .form-label { font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; display: block; }
-        .form-input { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 14px; font-weight: 600; outline: none; }
-        .form-input:focus { border-color: var(--accent); background: rgba(124,92,252,0.06); }
-        .form-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
-
-        /* НИЖНЯЯ НАВИГАЦИЯ */
-        .bottom-nav {
-            display: none;
-            background: rgba(13, 13, 43, 0.95);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid var(--border-light);
-            padding: 8px 10px;
-            padding-bottom: calc(8px + env(safe-area-inset-bottom));
-            z-index: 100;
-        }
-
-        .nav-btn {
-            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-            background: none; border: none; color: var(--text-muted); font-size: 9px; font-weight: 700; cursor: pointer;
-            position: relative; transition: var(--transition-normal); padding: 6px 2px; border-radius: var(--radius-sm);
-        }
-        .nav-btn.active { color: var(--accent-secondary); background: rgba(6, 214, 160, 0.08); }
-        .nav-icon { font-size: 20px; transition: var(--transition-normal); }
-        .nav-icon-main { font-size: 24px; }
-        .nav-btn.active .nav-icon { transform: scale(1.15); }
-        .nav-badge { position: absolute; top: 2px; right: 15%; width: 16px; height: 16px; background: var(--danger); border-radius: 50%; font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; color: #fff; animation: badgePulse 1.5s infinite; }
-        @keyframes badgePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
-
-        /* МОДАЛКИ */
-        .modal-overlay { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgba(6, 6, 20, 0.85); backdrop-filter: blur(10px); animation: modalFadeIn 0.3s ease; }
-        @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .modal-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 40px 30px 30px; width: 90%; max-width: 400px; text-align: center; box-shadow: var(--shadow-lg), var(--shadow-glow); animation: modalPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; position: relative; overflow: hidden; }
-        @keyframes modalPop { from { opacity: 0; transform: scale(0.8) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-        .modal-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-        .confetti-piece { position: absolute; width: 8px; height: 8px; border-radius: 2px; animation: confettiFall 2s ease-out forwards; }
-        @keyframes confettiFall { 0% { opacity: 1; transform: translateY(-20px) rotate(0) scale(1); } 100% { opacity: 0; transform: translateY(400px) rotate(720deg) scale(0.5); } }
-        .modal-icon { font-size: 60px; margin-bottom: 15px; display: block; animation: modalIconBounce 0.6s ease both 0.2s; }
-        @keyframes modalIconBounce { 0% { transform: scale(0); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
-        .modal-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 8px; }
-        .modal-desc { font-size: 14px; color: var(--text-secondary); margin-bottom: 25px; line-height: 1.6; }
-        .modal-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--accent), var(--accent-dark)); border: none; border-radius: var(--radius-md); color: white; font-size: 15px; font-weight: 800; cursor: pointer; transition: var(--transition-normal); font-family: 'Inter', sans-serif; margin-top: 6px; }
-        .modal-btn.danger { background: linear-gradient(135deg, var(--danger), var(--danger-dark)); }
-        .modal-btn.secondary { background: rgba(255,255,255,0.05); border: 1px solid var(--border); margin-top: 10px; }
-        
-        .rules-list { text-align: left; margin-bottom: 20px; }
-        .rule-item { padding: 10px 14px; background: rgba(255, 255, 255, 0.03); border-radius: var(--radius-sm); margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
-
-        /* КЛИК ФИДБЕК (Маленькие циферки при нажатии) */
-        .click-feedback { position: fixed; font-size: 28px; font-weight: 900; color: #fff; pointer-events: none; text-shadow: 0 0 15px var(--accent), 0 0 30px var(--accent-glow); animation: floatUp 0.7s forwards; z-index: 999; white-space: nowrap; }
-        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1.2); } 100% { opacity: 0; transform: translateY(-100px) scale(0.5); } }
-
-        /* ИСПРАВЛЕНИЕ ОТОБРАЖЕНИЯ ПАНЕЛЕЙ И КНОПОК ДЛЯ МОБИЛЬНОЙ ВЕРСИИ */
-        @media (max-width: 900px) {
-            .panel { 
-                width: 100%; 
-                position: absolute; 
-                inset: 10px; 
-                height: calc(100% - 20px); 
-                z-index: 1; 
-                /* Жестко скрываем неактивные панели, чтобы не перекрывали клики */
-                display: none; 
-            }
-            .panel.active-tab { 
-                display: flex; 
-                z-index: 2; 
-            }
-            .bottom-nav { display: flex; }
-            #click-canvas { width: 220px; height: 220px; }
-            .clicker-rings { width: 280px; height: 280px; }
-            .header-streak { display: none; }
-            #toast-container { top: auto; bottom: 80px; right: 10px; left: 10px; max-width: none; }
-        }
-
-        @media (max-width: 380px) {
-            .stats-row { flex-direction: column; gap: 6px; }
-            .stat-card { flex-direction: row; }
-            #click-canvas { width: 200px; height: 200px; }
-            .clicker-rings { width: 260px; height: 260px; }
-            .reg-container { padding: 30px 20px 25px; }
-            .reg-container h1 { font-size: 24px; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Clicker Online — Кликай, соревнуйся, побеждай!</title>
+
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<meta property="og:image" content="icon-512.png">
+<meta name="theme-color" content="#7c5cfc">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --bg-primary:#060614;--bg-secondary:#0d0d2b;--bg-card:#131340;--bg-card-hover:#1a1a50;
+  --accent:#7c5cfc;--accent-light:#a78bfa;--accent-dark:#5a3ce0;--accent-glow:rgba(124,92,252,.35);
+  --accent-secondary:#06d6a0;--accent-secondary-dark:#04b890;--accent-tertiary:#f72585;--accent-gold:#ffd700;
+  --text-primary:#eeeeff;--text-secondary:#9896b0;--text-muted:#5a587a;
+  --border:rgba(124,92,252,.15);--border-light:rgba(124,92,252,.08);
+  --danger:#ff4757;--danger-dark:#c0392b;--warning:#ffa502;--success:#2ed573;
+  --glass:rgba(19,19,64,.75);--glass-border:rgba(255,255,255,.06);
+  --radius-sm:10px;--radius-md:14px;--radius-lg:20px;--radius-xl:24px;
+  --shadow-sm:0 2px 10px rgba(0,0,0,.3);--shadow-md:0 8px 30px rgba(0,0,0,.4);--shadow-lg:0 20px 60px rgba(0,0,0,.5);
+  --shadow-glow:0 0 40px var(--accent-glow);
+  --transition-fast:.15s ease;--transition-normal:.3s ease;--transition-slow:.5s cubic-bezier(.4,0,.2,1);
+}
+
+html,body{height:100%;overflow:hidden;overscroll-behavior:none;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg-primary);color:var(--text-primary);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-font-smoothing:antialiased}
+body{display:flex;flex-direction:column;background-image:radial-gradient(ellipse at 20% 50%,rgba(124,92,252,.05) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(6,214,160,.04) 0%,transparent 50%),radial-gradient(ellipse at 50% 100%,rgba(247,37,133,.03) 0%,transparent 40%)}
+input{user-select:text;-webkit-user-select:text}
+.gradient-text{background:linear-gradient(135deg,var(--accent-light),var(--accent-secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--accent-glow);border-radius:10px}
+
+/* ============ ЗАГРУЗКА ============ */
+#loading-screen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--bg-primary)}
+.loader-container{position:relative;width:100px;height:100px;display:flex;align-items:center;justify-content:center}
+.loader-ring{position:absolute;width:100%;height:100%;border:3px solid transparent;border-top-color:var(--accent);border-radius:50%;animation:loaderSpin 1.2s cubic-bezier(.5,0,.5,1) infinite}
+.loader-ring.delay-1{width:75%;height:75%;border-top-color:var(--accent-secondary);animation-delay:-.15s}
+.loader-ring.delay-2{width:50%;height:50%;border-top-color:var(--accent-tertiary);animation-delay:-.3s}
+.loader-text{position:absolute;bottom:-40px;font-size:14px;color:var(--text-muted);font-weight:600;letter-spacing:2px;animation:loaderPulse 1.5s ease-in-out infinite;white-space:nowrap}
+@keyframes loaderSpin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+@keyframes loaderPulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* ============ РЕГИСТРАЦИЯ ============ */
+#registration-screen{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center}
+#reg-bg-canvas{position:absolute;inset:0;width:100%;height:100%;opacity:.6}
+.reg-container{position:relative;z-index:1;background:var(--glass);backdrop-filter:blur(40px) saturate(1.5);border:1px solid var(--glass-border);border-radius:var(--radius-xl);padding:45px 35px 35px;width:92%;max-width:420px;text-align:center;box-shadow:var(--shadow-lg),var(--shadow-glow);animation:regAppear .8s var(--transition-slow) both}
+@keyframes regAppear{from{opacity:0;transform:translateY(30px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.reg-icon-wrapper{position:relative;width:90px;height:90px;margin:0 auto 20px}
+.reg-icon-glow{position:absolute;inset:-15px;border-radius:50%;background:radial-gradient(circle,var(--accent-glow) 0%,transparent 70%);animation:iconGlow 3s ease-in-out infinite}
+@keyframes iconGlow{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.15)}}
+.reg-icon-wrapper canvas{position:relative;z-index:1;width:90px;height:90px}
+.reg-container h1{font-size:30px;font-weight:900;color:#fff;margin-bottom:6px;letter-spacing:-.5px}
+.reg-subtitle{color:var(--text-secondary);font-size:14px;margin-bottom:28px;letter-spacing:2px;font-weight:500}
+.reg-features{display:flex;gap:8px;margin-bottom:25px;justify-content:center;flex-wrap:wrap}
+.reg-feature{background:rgba(124,92,252,.08);border:1px solid var(--border);padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;color:var(--text-secondary)}
+.input-wrapper{position:relative;margin-bottom:18px}
+.input-wrapper input{width:100%;padding:16px 20px;background:rgba(255,255,255,.04);border:2px solid var(--border);border-radius:var(--radius-md);color:#fff;font-size:16px;font-weight:600;outline:none;text-align:center;letter-spacing:.5px;transition:var(--transition-normal);font-family:inherit}
+.input-wrapper input::placeholder{color:var(--text-muted);font-weight:500}
+.input-wrapper input:focus{border-color:var(--accent);background:rgba(124,92,252,.06);box-shadow:0 0 20px rgba(124,92,252,.15)}
+.reg-btn{width:100%;padding:16px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));border:none;border-radius:var(--radius-md);color:#fff;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:var(--transition-normal);position:relative;overflow:hidden;letter-spacing:.5px;font-family:inherit}
+.reg-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 30%,rgba(255,255,255,.1) 50%,transparent 70%);transform:translateX(-100%);transition:.6s}
+.reg-btn:hover::before{transform:translateX(100%)}
+.reg-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(124,92,252,.4)}
+.reg-btn:active{transform:translateY(0) scale(.98)}
+.btn-icon{font-size:20px;transition:var(--transition-normal)}
+.reg-btn:hover .btn-icon{transform:translateX(4px)}
+#reg-error{color:var(--danger);font-size:13px;margin-top:12px;min-height:18px;font-weight:600}
+
+/* ============ ИГРА / ШАПКА ============ */
+#game-screen{flex-direction:column;height:100dvh;animation:screenFadeIn .5s ease both}
+@keyframes screenFadeIn{from{opacity:0}to{opacity:1}}
+.game-header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:rgba(13,13,43,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border-light);flex-shrink:0;z-index:50;min-height:56px;gap:8px}
+.header-left{display:flex;align-items:center;gap:10px;min-width:0}
+.header-logo-wrap{width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.header-title-group{display:flex;flex-direction:column;min-width:0}
+.header-title{font-size:15px;font-weight:800;color:#fff;line-height:1.2;white-space:nowrap}
+.header-online{font-size:11px;color:var(--accent-secondary);font-weight:600;white-space:nowrap}
+.header-right{display:flex;align-items:center;gap:8px}
+.header-streak{display:flex;align-items:center;gap:4px;background:rgba(255,165,2,.12);padding:4px 10px;border-radius:20px;border:1px solid rgba(255,165,2,.2)}
+.streak-icon{font-size:14px}
+.streak-val{font-size:13px;font-weight:800;color:var(--warning)}
+.header-user{display:flex;align-items:center;gap:8px;background:rgba(124,92,252,.1);padding:5px 12px 5px 5px;border-radius:var(--radius-md);border:1px solid var(--border);cursor:pointer;transition:var(--transition-fast)}
+.header-user:hover{background:rgba(124,92,252,.2)}
+.header-avatar{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-secondary));display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff;flex-shrink:0}
+.header-user-info{display:flex;flex-direction:column;min-width:0}
+.header-nickname{font-size:13px;font-weight:700;color:#fff;line-height:1.2;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.header-sub{font-size:10px;font-weight:700;color:var(--accent-light);display:flex;gap:5px;align-items:center;white-space:nowrap}
+.header-clan-tag{color:var(--accent-secondary);font-weight:900}
+
+/* ============ ТОСТЫ ============ */
+#toast-container{position:fixed;top:70px;right:16px;z-index:9500;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:340px}
+.toast{padding:12px 18px;border-radius:var(--radius-md);backdrop-filter:blur(20px);font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;animation:toastIn .4s ease both;box-shadow:var(--shadow-md)}
+.toast-success{background:rgba(46,213,115,.15);border:1px solid rgba(46,213,115,.3);color:var(--success)}
+.toast-warning{background:rgba(255,165,2,.15);border:1px solid rgba(255,165,2,.3);color:var(--warning)}
+.toast-danger{background:rgba(255,71,87,.15);border:1px solid rgba(255,71,87,.3);color:var(--danger)}
+.toast-info{background:rgba(124,92,252,.15);border:1px solid rgba(124,92,252,.3);color:var(--accent-light)}
+.toast-icon{font-size:18px}
+.toast.removing{animation:toastOut .3s ease both}
+@keyframes toastIn{from{opacity:0;transform:translateX(50px) scale(.9)}to{opacity:1;transform:translateX(0) scale(1)}}
+@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(80px)}}
+
+/* ============ БАННЕР ШТРАФА ============ */
+.penalty-banner{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 16px;font-size:13px;font-weight:700;z-index:40;flex-shrink:0;animation:bannerSlide .4s ease both;background:linear-gradient(90deg,rgba(255,71,87,.2),rgba(255,71,87,.1));border-bottom:1px solid rgba(255,71,87,.3);color:var(--danger)}
+@keyframes bannerSlide{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
+.penalty-icon{font-size:18px}
+.penalty-timer{background:rgba(0,0,0,.3);padding:2px 10px;border-radius:10px;font-size:12px;font-weight:800}
+
+/* ============ LAYOUT ============ */
+.game-main{flex:1;display:flex;overflow:hidden;padding:10px;gap:10px;position:relative;min-height:0}
+.side-column{width:300px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;min-height:0}
+.side-switch{display:flex;gap:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:5px;flex-shrink:0}
+.side-switch-btn{flex:1;padding:9px 4px;background:transparent;border:none;border-radius:var(--radius-sm);color:var(--text-muted);font-size:17px;cursor:pointer;transition:var(--transition-fast);position:relative;font-family:inherit}
+.side-switch-btn:hover{background:rgba(124,92,252,.1);color:var(--text-primary)}
+.side-switch-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;box-shadow:0 4px 14px rgba(124,92,252,.35)}
+.side-switch-btn .mini-badge{position:absolute;top:2px;right:6px;min-width:15px;height:15px;padding:0 3px;background:var(--danger);border-radius:8px;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;color:#fff;animation:badgePulse 1.5s infinite}
+.side-panels{flex:1;position:relative;min-height:0}
+.panel{background:var(--bg-card);border-radius:var(--radius-lg);border:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.side-panels .panel{position:absolute;inset:0;display:none}
+.side-panels .panel.side-active{display:flex}
+.panel-header{padding:13px 16px;font-size:14px;font-weight:700;border-bottom:1px solid var(--border-light);display:flex;align-items:center;gap:8px;flex-shrink:0;background:rgba(255,255,255,.02)}
+.panel-header-icon{font-size:18px}
+.panel-header-badge{margin-left:auto;background:var(--accent);color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;min-width:24px;text-align:center}
+
+/* ============ КЛИКЕР ============ */
+.panel-center{flex:1;align-items:center;justify-content:flex-start;padding:15px 10px;background:radial-gradient(ellipse at center 60%,rgba(124,92,252,.04) 0%,transparent 60%);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.stats-row{display:flex;gap:8px;width:100%;max-width:380px;padding:0 5px}
+.stat-card{flex:1;background:rgba(255,255,255,.03);border:1px solid var(--border-light);border-radius:var(--radius-md);padding:10px 8px;display:flex;align-items:center;gap:8px;min-width:0}
+.stat-icon{font-size:20px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:rgba(124,92,252,.1);border-radius:var(--radius-sm);flex-shrink:0}
+.stat-clicks .stat-icon{background:rgba(6,214,160,.1)}
+.stat-level .stat-icon{background:rgba(255,215,0,.1)}
+.stat-cps .stat-icon{background:rgba(247,37,133,.1)}
+.stat-body{min-width:0;flex:1}
+.stat-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:.5px}
+.stat-value{font-size:clamp(14px,4vw,20px);font-weight:900;color:#fff;line-height:1.1;word-break:break-all}
+.stat-value.level-val{color:var(--accent-gold)}
+.stat-value.cps-val{color:var(--accent-tertiary)}
+
+.clan-mini{margin-top:10px;display:none;align-items:center;gap:8px;background:rgba(6,214,160,.07);border:1px solid rgba(6,214,160,.2);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;color:var(--accent-secondary);cursor:pointer}
+.clan-mini.visible{display:flex}
+
+.clicker-area{position:relative;display:flex;align-items:center;justify-content:center;margin:10px 0;width:100%}
+#floating-events-container{position:absolute;top:-10px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:100;width:100%}
+.floating-event{font-size:clamp(16px,5vw,24px);font-weight:900;text-shadow:0 0 10px currentColor,0 2px 4px rgba(0,0,0,.8);animation:floatUpEvent 1.2s ease-out forwards;margin-bottom:5px;white-space:nowrap}
+@keyframes floatUpEvent{0%{opacity:0;transform:translateY(20px) scale(.8)}20%{opacity:1;transform:translateY(0) scale(1.1)}40%{transform:scale(1)}100%{opacity:0;transform:translateY(-30px)}}
+.clicker-rings{position:absolute;width:300px;height:300px;pointer-events:none}
+.ring{position:absolute;inset:0;border:2px solid transparent;border-radius:50%;animation:ringRotate 8s linear infinite}
+.ring-1{border-top-color:rgba(124,92,252,.3);border-right-color:rgba(124,92,252,.15)}
+.ring-2{inset:10px;border-bottom-color:rgba(6,214,160,.25);border-left-color:rgba(6,214,160,.1);animation-direction:reverse;animation-duration:12s}
+.ring-3{inset:20px;border-top-color:rgba(247,37,133,.2);animation-duration:16s}
+@keyframes ringRotate{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+#click-canvas{width:240px;height:240px;cursor:pointer;touch-action:none;position:relative;z-index:2;filter:drop-shadow(0 0 20px var(--accent-glow));transition:filter var(--transition-fast)}
+#click-canvas.penalty-mode{filter:drop-shadow(0 0 20px rgba(255,71,87,.5)) hue-rotate(120deg)}
+#particles-canvas{position:absolute;inset:-50px;width:calc(100% + 100px);height:calc(100% + 100px);pointer-events:none;z-index:3}
+.bars-container{width:100%;max-width:360px;padding:0 10px;margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.bar-group{width:100%}
+.bar-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.bar-label{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-secondary)}
+.bar-value{font-size:12px;font-weight:700;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.bar-bg{width:100%;height:10px;background:rgba(255,255,255,.05);border-radius:10px;overflow:hidden}
+.bar-fill{height:100%;border-radius:10px;transition:width .15s ease}
+#energy-bar{background:linear-gradient(90deg,var(--accent-secondary-dark),var(--accent-secondary))}
+#energy-bar.danger{background:linear-gradient(90deg,var(--danger-dark),var(--danger))}
+#energy-bar.penalty{background:linear-gradient(90deg,#444,#666)}
+.level-fill{background:linear-gradient(90deg,var(--accent-dark),var(--accent-light))}
+.mini-achievements{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;justify-content:center;max-width:360px}
+.mini-ach{background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;color:var(--accent-gold);animation:achAppear .5s ease both}
+@keyframes achAppear{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+
+/* ============ ЛИДЕРБОРД ============ */
+.leaderboard-list{flex:1;overflow-y:auto;padding:8px;-webkit-overflow-scrolling:touch}
+.lb-empty,.arena-empty,.clan-empty{text-align:center;color:var(--text-muted);padding:34px 18px;font-size:13px;line-height:1.6}
+.lb-item{display:flex;align-items:center;gap:9px;padding:10px;border-radius:var(--radius-md);margin-bottom:4px;background:rgba(255,255,255,.02);transition:var(--transition-fast);cursor:pointer}
+.lb-item:hover{background:rgba(124,92,252,.12);transform:translateX(2px)}
+.lb-item.is-me{background:rgba(124,92,252,.1);border:1px solid var(--border)}
+.lb-rank{width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;border-radius:var(--radius-sm);flex-shrink:0}
+.rank-1{background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;box-shadow:0 2px 10px rgba(255,215,0,.3)}
+.rank-2{background:linear-gradient(135deg,#E0E0E0,#A0A0A0);color:#000}
+.rank-3{background:linear-gradient(135deg,#CD7F32,#B8860B);color:#fff}
+.rank-other{background:rgba(255,255,255,.06);color:var(--text-muted)}
+.lb-avatar{width:30px;height:30px;border-radius:var(--radius-sm);background:linear-gradient(135deg,var(--accent),var(--accent-secondary));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;flex-shrink:0;position:relative}
+.lb-avatar .dot{position:absolute;right:-2px;bottom:-2px;width:9px;height:9px;border-radius:50%;border:2px solid var(--bg-card)}
+.dot.online{background:var(--success);box-shadow:0 0 6px var(--success)}
+.dot.offline{background:var(--text-muted)}
+.lb-info{flex:1;min-width:0}
+.lb-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;display:flex;align-items:center;gap:5px}
+.lb-clan{font-size:10px;font-weight:900;color:var(--accent-secondary);background:rgba(6,214,160,.1);padding:1px 5px;border-radius:5px;flex-shrink:0}
+.lb-clicks{font-size:11px;color:var(--text-muted);font-weight:500}
+.lb-level-badge{background:rgba(124,92,252,.2);color:var(--accent-light);font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;flex-shrink:0}
+
+/* ============ ЧАТ ============ */
+.panel-right{width:320px;flex-shrink:0}
+.chat-rules-btn{margin-left:auto;cursor:pointer;font-size:16px;opacity:.5;transition:var(--transition-fast)}
+.chat-rules-btn:hover{opacity:1}
+.chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:6px;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
+.chat-scroll-controls{display:flex;gap:4px;padding:4px 10px;border-top:1px solid var(--border-light);justify-content:flex-end;background:rgba(0,0,0,.1)}
+.chat-scroll-btn{width:32px;height:30px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:var(--transition-fast)}
+.chat-scroll-btn:hover{background:rgba(124,92,252,.15);color:var(--accent-light)}
+.chat-system-msg{text-align:center;color:var(--text-muted);font-size:12px;padding:8px;font-style:italic}
+.chat-msg{padding:8px 12px;border-radius:var(--radius-md);background:rgba(255,255,255,.03);animation:msgAppear .3s ease both;border-left:3px solid var(--accent-dark);word-break:break-word}
+.chat-msg.my-msg{border-left-color:var(--accent-secondary)}
+@keyframes msgAppear{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.chat-msg-header{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px}
+.chat-msg-name{font-size:12px;font-weight:700;color:var(--accent-light);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-msg-level{font-size:10px;color:var(--text-muted);font-weight:600;margin-left:auto;flex-shrink:0}
+.chat-msg-time{font-size:10px;color:var(--text-muted);flex-shrink:0}
+.chat-msg-text{font-size:13px;color:var(--text-primary);line-height:1.45}
+.chat-input-area{padding:10px;border-top:1px solid var(--border-light);display:flex;gap:8px;background:rgba(0,0,0,.1)}
+.chat-input-area input{flex:1;min-width:0;padding:11px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:var(--radius-sm);color:#fff;font-size:14px;outline:none;font-family:inherit}
+.chat-input-area input:focus{border-color:var(--accent);background:rgba(124,92,252,.05)}
+.chat-send-btn{width:42px;height:42px;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px}
+.chat-send-btn:active{transform:scale(.95)}
+
+/* ============ МАГАЗИН ============ */
+.shop-content{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.shop-balance{background:linear-gradient(135deg,rgba(6,214,160,.15),rgba(124,92,252,.15));border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:14px;text-align:center}
+.shop-balance-label{font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:600}
+.shop-balance-value{font-size:clamp(20px,6vw,28px);font-weight:900;color:var(--accent-secondary);text-shadow:0 0 20px rgba(6,214,160,.4);word-break:break-all;line-height:1}
+.shop-items{display:flex;flex-direction:column;gap:10px}
+.shop-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;transition:var(--transition-fast)}
+.shop-item:hover{border-color:var(--accent)}
+.shop-item-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.shop-item-icon{font-size:26px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(124,92,252,.1);border-radius:var(--radius-sm);flex-shrink:0}
+.shop-item-info{flex:1;min-width:0}
+.shop-item-name{font-size:14px;font-weight:800;color:#fff;margin-bottom:3px}
+.shop-item-level{font-size:11px;color:var(--text-muted);font-weight:600}
+.shop-item-desc{font-size:12px;color:var(--text-secondary);margin-bottom:10px;line-height:1.4}
+.shop-item-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.shop-item-price{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:900;color:var(--accent-gold);word-break:break-all}
+.shop-item-buy{padding:8px 20px;background:linear-gradient(135deg,var(--accent-secondary),var(--accent-secondary-dark));border:none;border-radius:var(--radius-sm);color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+.shop-item-buy:disabled{background:rgba(255,255,255,.05);color:var(--text-muted);cursor:not-allowed}
+.shop-item.max-level{opacity:.6}
+.shop-item-max{color:var(--accent-gold);font-size:12px;font-weight:800}
+
+/* ============ АРЕНА ============ */
+.arena-content{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.arena-scroll{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.arena-top-bar{display:flex;gap:8px;margin-bottom:12px}
+.arena-btn{flex:1;padding:12px;border:1px solid var(--border);border-radius:var(--radius-md);background:rgba(255,255,255,.03);color:var(--text-primary);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:var(--transition-fast)}
+.arena-btn:hover{background:rgba(124,92,252,.15)}
+.arena-btn:active{transform:scale(.96)}
+.arena-btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-dark));border-color:transparent;color:#fff}
+.arena-rooms-list{display:flex;flex-direction:column;gap:8px}
+.arena-room-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--radius-md);padding:13px;display:flex;align-items:center;gap:10px}
+.arena-room-info{flex:1;min-width:0}
+.arena-room-name{font-size:14px;font-weight:800;color:#fff;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arena-room-meta{font-size:11px;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:10px;font-weight:600}
+.arena-room-join{padding:9px 16px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));border:none;border-radius:var(--radius-sm);color:#fff;font-size:13px;font-weight:800;cursor:pointer;flex-shrink:0;font-family:inherit}
+.arena-room-join:disabled{opacity:.45;cursor:not-allowed}
+
+.arena-room-screen{display:flex;flex-direction:column;height:100%;min-height:0}
+.arena-room-header{padding:11px 12px;border-bottom:1px solid var(--border-light);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.arena-back-btn{padding:7px 12px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0}
+.arena-back-btn:hover{color:#fff;background:rgba(255,71,87,.15)}
+.arena-room-title{font-size:14px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arena-room-bet-info{margin-left:auto;font-size:13px;font-weight:800;color:var(--accent-gold);flex-shrink:0}
+.arena-room-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;-webkit-overflow-scrolling:touch}
+.arena-players-list{padding:10px;display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.arena-player-row{display:flex;align-items:center;gap:10px;padding:9px 11px;background:rgba(255,255,255,.03);border-radius:var(--radius-md);border:1px solid var(--border-light)}
+.arena-player-row.is-me{background:rgba(124,92,252,.1);border-color:var(--border)}
+.arena-player-row.eliminated{opacity:.45}
+.arena-player-avatar{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-secondary));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;flex-shrink:0}
+.arena-player-name{flex:1;font-size:13px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arena-player-status{font-size:11px;font-weight:800;padding:3px 9px;border-radius:10px;flex-shrink:0}
+.status-holding{background:rgba(46,213,115,.2);color:var(--success)}
+.status-lost{background:rgba(255,71,87,.2);color:var(--danger)}
+.status-winner{background:rgba(255,215,0,.2);color:var(--accent-gold)}
+.status-waiting{background:rgba(255,255,255,.05);color:var(--text-muted)}
+.arena-game-area{padding:8px 16px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0}
+.arena-hold-btn{width:170px;height:170px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;font-family:inherit;font-size:34px;font-weight:900;color:#fff;position:relative;outline:none;touch-action:none;user-select:none;-webkit-user-select:none;text-align:center;padding:10px}
+.arena-hold-btn.waiting{background:linear-gradient(135deg,#3a3a52,#26263a)}
+.arena-hold-btn.ready{background:linear-gradient(135deg,var(--accent),var(--accent-dark));animation:holdPulseReady 1.2s infinite}
+.arena-hold-btn.holding{background:linear-gradient(135deg,var(--accent-secondary),var(--accent-secondary-dark));transform:scale(.93);box-shadow:0 0 45px rgba(6,214,160,.55)}
+.arena-hold-btn.lost{background:linear-gradient(135deg,var(--danger),var(--danger-dark))}
+.arena-hold-btn.won{background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;animation:wonGlow 1.4s infinite}
+@keyframes holdPulseReady{0%,100%{box-shadow:0 0 20px rgba(124,92,252,.3)}50%{box-shadow:0 0 45px rgba(124,92,252,.65)}}
+@keyframes wonGlow{0%,100%{box-shadow:0 0 25px rgba(255,215,0,.4)}50%{box-shadow:0 0 55px rgba(255,215,0,.75)}}
+.arena-hold-sub{font-size:12px;font-weight:700;opacity:.9;line-height:1.3}
+.arena-countdown{font-size:40px;font-weight:900;color:var(--accent-light);text-shadow:0 0 20px var(--accent-glow);animation:cdPop .5s ease}
+@keyframes cdPop{from{transform:scale(1.5);opacity:.2}to{transform:scale(1);opacity:1}}
+.arena-hint{font-size:12px;font-weight:700;color:var(--accent-secondary);text-align:center}
+.arena-hint.muted{color:var(--text-muted)}
+.arena-start-btn{padding:12px 26px;background:linear-gradient(135deg,var(--accent-secondary),var(--accent-secondary-dark));border:none;border-radius:var(--radius-md);color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
+.arena-start-btn:disabled{opacity:.45;cursor:not-allowed}
+.arena-pot{font-size:12px;font-weight:700;color:var(--accent-gold)}
+
+/* Чат внутри комнаты */
+.room-chat{border-top:1px solid var(--border-light);display:flex;flex-direction:column;flex-shrink:0;background:rgba(0,0,0,.15)}
+.room-chat-head{padding:7px 12px;font-size:11px;font-weight:800;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.room-chat-messages{height:120px;overflow-y:auto;padding:0 10px 6px;display:flex;flex-direction:column;gap:4px;-webkit-overflow-scrolling:touch}
+.room-msg{font-size:12px;line-height:1.4;word-break:break-word;background:rgba(255,255,255,.03);border-radius:8px;padding:5px 8px}
+.room-msg.mine{background:rgba(6,214,160,.09)}
+.room-msg b{color:var(--accent-light);font-weight:800}
+.room-msg.mine b{color:var(--accent-secondary)}
+.room-msg.sys{background:transparent;color:var(--text-muted);font-style:italic;text-align:center;font-size:11px}
+.room-chat-input-row{display:flex;gap:6px;padding:8px 10px}
+.room-chat-input{flex:1;min-width:0;padding:9px 12px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:var(--radius-sm);color:#fff;font-size:13px;outline:none;font-family:inherit}
+.room-chat-input:focus{border-color:var(--accent)}
+.room-chat-send{width:38px;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#fff;cursor:pointer;font-size:14px;flex-shrink:0}
+
+/* ============ КЛАНЫ ============ */
+.clan-content{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.clan-hero{background:linear-gradient(135deg,rgba(124,92,252,.18),rgba(6,214,160,.12));border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;text-align:center;margin-bottom:12px;position:relative;overflow:hidden}
+.clan-hero::after{content:'';position:absolute;top:-40%;right:-20%;width:180px;height:180px;background:radial-gradient(circle,var(--accent-glow),transparent 70%)}
+.clan-emblem{width:64px;height:64px;margin:0 auto 10px;border-radius:18px;background:linear-gradient(135deg,var(--accent),var(--accent-secondary));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;box-shadow:0 8px 26px rgba(124,92,252,.4);position:relative;z-index:1}
+.clan-title{font-size:20px;font-weight:900;color:#fff;position:relative;z-index:1;word-break:break-word}
+.clan-tag-label{font-size:12px;font-weight:800;color:var(--accent-secondary);margin-top:2px;position:relative;z-index:1}
+.clan-stats-row{display:flex;gap:8px;margin-top:14px;position:relative;z-index:1}
+.clan-stat{flex:1;background:rgba(0,0,0,.25);border-radius:var(--radius-sm);padding:8px 6px}
+.clan-stat-val{font-size:15px;font-weight:900;color:#fff;word-break:break-all}
+.clan-stat-lbl{font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.clan-section-title{font-size:12px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+.clan-member{display:flex;align-items:center;gap:10px;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border-light);border-radius:var(--radius-md);margin-bottom:6px;transition:var(--transition-fast)}
+.clan-member:hover{border-color:var(--border)}
+.clan-member.is-me{background:rgba(124,92,252,.1);border-color:var(--border)}
+.clan-member-avatar{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-secondary));display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:14px;flex-shrink:0}
+.clan-member-info{flex:1;min-width:0}
+.clan-member-name{font-size:13px;font-weight:800;color:#fff;display:flex;align-items:center;gap:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clan-member-sub{font-size:11px;color:var(--text-muted);font-weight:600}
+.clan-role{font-size:9px;font-weight:900;padding:2px 6px;border-radius:6px;flex-shrink:0}
+.role-leader{background:rgba(255,215,0,.18);color:var(--accent-gold)}
+.role-member{background:rgba(255,255,255,.06);color:var(--text-muted)}
+.clan-kick{width:28px;height:28px;border-radius:8px;background:rgba(255,71,87,.12);border:1px solid rgba(255,71,87,.25);color:var(--danger);cursor:pointer;font-size:12px;flex-shrink:0}
+.clan-invite-card{display:flex;align-items:center;gap:10px;padding:11px;background:rgba(6,214,160,.06);border:1px solid rgba(6,214,160,.22);border-radius:var(--radius-md);margin-bottom:6px}
+.clan-invite-info{flex:1;min-width:0}
+.clan-invite-name{font-size:13px;font-weight:800;color:#fff}
+.clan-invite-sub{font-size:11px;color:var(--text-muted)}
+.clan-mini-btn{padding:7px 12px;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;color:#fff}
+.clan-mini-btn.ok{background:linear-gradient(135deg,var(--accent-secondary),var(--accent-secondary-dark))}
+.clan-mini-btn.no{background:rgba(255,71,87,.15);color:var(--danger);border:1px solid rgba(255,71,87,.3)}
+.clan-actions{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.clan-big-btn{width:100%;padding:13px;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-dark))}
+.clan-big-btn.ghost{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text-secondary)}
+.clan-big-btn.danger{background:rgba(255,71,87,.13);border:1px solid rgba(255,71,87,.3);color:var(--danger)}
+.clan-info-box{background:rgba(255,255,255,.03);border:1px dashed var(--border);border-radius:var(--radius-md);padding:12px;font-size:12px;color:var(--text-secondary);line-height:1.6;margin-top:12px}
+.clan-info-box b{color:var(--accent-secondary)}
+.clan-list-item{display:flex;align-items:center;gap:10px;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border-light);border-radius:var(--radius-md);margin-bottom:6px}
+
+/* ============ НИЖНЯЯ НАВИГАЦИЯ ============ */
+.bottom-nav{display:none;background:rgba(13,13,43,.96);backdrop-filter:blur(20px);border-top:1px solid var(--border-light);padding:6px 4px;padding-bottom:calc(6px + env(safe-area-inset-bottom));z-index:100;flex-shrink:0}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;color:var(--text-muted);font-size:9px;font-weight:700;cursor:pointer;position:relative;transition:var(--transition-normal);padding:5px 1px;border-radius:var(--radius-sm);font-family:inherit;min-width:0}
+.nav-btn.active{color:var(--accent-secondary);background:rgba(6,214,160,.08)}
+.nav-icon{font-size:19px;transition:var(--transition-normal)}
+.nav-icon-main{font-size:23px}
+.nav-btn.active .nav-icon{transform:scale(1.12)}
+.nav-badge{position:absolute;top:0;right:12%;min-width:16px;height:16px;padding:0 3px;background:var(--danger);border-radius:8px;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;color:#fff;animation:badgePulse 1.5s infinite}
+@keyframes badgePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+
+/* ============ МОДАЛКИ ============ */
+.modal-overlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(6,6,20,.85);backdrop-filter:blur(10px);animation:modalFadeIn .3s ease;padding:16px}
+@keyframes modalFadeIn{from{opacity:0}to{opacity:1}}
+.modal-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:32px 26px 26px;width:100%;max-width:400px;text-align:center;box-shadow:var(--shadow-lg),var(--shadow-glow);animation:modalPop .4s cubic-bezier(.34,1.56,.64,1) both;position:relative;overflow:hidden;max-height:90vh;overflow-y:auto}
+@keyframes modalPop{from{opacity:0;transform:scale(.85) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.confetti-piece{position:absolute;width:8px;height:8px;border-radius:2px;animation:confettiFall 2s ease-out forwards}
+@keyframes confettiFall{0%{opacity:1;transform:translateY(-20px) rotate(0) scale(1)}100%{opacity:0;transform:translateY(400px) rotate(720deg) scale(.5)}}
+.modal-icon{font-size:54px;margin-bottom:12px;display:block;animation:modalIconBounce .6s ease both .15s}
+@keyframes modalIconBounce{0%{transform:scale(0)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
+.modal-title{font-size:22px;font-weight:900;color:#fff;margin-bottom:8px;word-break:break-word}
+.modal-desc{font-size:14px;color:var(--text-secondary);margin-bottom:20px;line-height:1.6}
+.modal-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));border:none;border-radius:var(--radius-md);color:#fff;font-size:15px;font-weight:800;cursor:pointer;transition:var(--transition-normal);font-family:inherit;margin-top:8px}
+.modal-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(124,92,252,.35)}
+.modal-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.modal-btn.green{background:linear-gradient(135deg,var(--accent-secondary),var(--accent-secondary-dark))}
+.modal-btn.danger{background:linear-gradient(135deg,var(--danger),var(--danger-dark))}
+.modal-btn.secondary{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text-secondary)}
+.modal-err{color:var(--danger);font-size:13px;margin:8px 0 2px;min-height:18px;font-weight:600}
+.rules-list{text-align:left;margin-bottom:16px}
+.rule-item{padding:10px 14px;background:rgba(255,255,255,.03);border-radius:var(--radius-sm);margin-bottom:6px;font-size:13px;font-weight:600;color:var(--text-secondary)}
+.create-room-form,.create-clan-form{text-align:left}
+.form-group{margin-bottom:14px}
+.form-label{font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;display:block}
+.form-input{width:100%;padding:12px 16px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:var(--radius-sm);color:#fff;font-size:14px;font-weight:600;outline:none;font-family:inherit}
+.form-input:focus{border-color:var(--accent);background:rgba(124,92,252,.06)}
+.form-hint{font-size:11px;color:var(--text-muted);margin-top:4px}
+.chip-row{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.chip{padding:6px 12px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text-secondary);cursor:pointer}
+.chip:hover,.chip.active{background:rgba(124,92,252,.2);color:#fff;border-color:var(--accent)}
+.profile-stats{display:flex;gap:8px;margin-bottom:18px}
+.pstat{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:10px 6px}
+.pstat-v{font-size:15px;font-weight:900;color:#fff;word-break:break-all}
+.pstat-l{font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-top:2px}
+.big-avatar{width:72px;height:72px;margin:0 auto 12px;border-radius:22px;background:linear-gradient(135deg,var(--accent),var(--accent-secondary));display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;box-shadow:0 10px 30px rgba(124,92,252,.35)}
+.divider{height:1px;background:var(--border);margin:16px 0}
+
+/* ============ КЛИК-ФИДБЕК ============ */
+.click-feedback{position:fixed;font-size:28px;font-weight:900;color:#fff;pointer-events:none;text-shadow:0 0 15px var(--accent),0 0 30px var(--accent-glow);animation:floatUp .7s forwards;z-index:9400;white-space:nowrap}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1.2)}100%{opacity:0;transform:translateY(-100px) scale(.5)}}
+
+/* ============ АДАПТИВ ============ */
+@media (max-width:980px){
+  .side-column{display:contents}
+  .side-switch{display:none}
+  .side-panels{display:contents}
+  .panel,.side-panels .panel{position:absolute;inset:10px;width:auto;height:auto;display:none;z-index:1}
+  .panel.active-tab{display:flex;z-index:2}
+  .side-panels .panel.side-active{display:none}
+  .side-panels .panel.side-active.active-tab{display:flex}
+  .panel-right{width:auto}
+  .bottom-nav{display:flex}
+  #click-canvas{width:215px;height:215px}
+  .clicker-rings{width:275px;height:275px}
+  .header-streak{display:none}
+  .header-title{font-size:14px}
+  #toast-container{top:auto;bottom:78px;right:8px;left:8px;max-width:none}
+  .room-chat-messages{height:100px}
+}
+@media (max-width:380px){
+  .stats-row{flex-direction:column;gap:6px}
+  #click-canvas{width:190px;height:190px}
+  .clicker-rings{width:250px;height:250px}
+  .reg-container{padding:30px 20px 25px}
+  .reg-container h1{font-size:24px}
+  .header-nickname{max-width:74px}
+  .arena-hold-btn{width:150px;height:150px}
+  .nav-btn{font-size:8px}
+}
+@media (max-height:640px){
+  .clicker-rings{display:none}
+  #click-canvas{width:170px;height:170px}
+}
+</style>
 </head>
 <body>
 
+<!-- ЗАГРУЗКА -->
 <div id="loading-screen">
-    <div class="loader-container">
-        <div class="loader-ring"></div>
-        <div class="loader-ring delay-1"></div>
-        <div class="loader-ring delay-2"></div>
-        <div class="loader-text">CLICKER ONLINE</div>
-    </div>
+  <div class="loader-container">
+    <div class="loader-ring"></div>
+    <div class="loader-ring delay-1"></div>
+    <div class="loader-ring delay-2"></div>
+    <div class="loader-text">CLICKER ONLINE</div>
+  </div>
 </div>
 
+<!-- РЕГИСТРАЦИЯ -->
 <div id="registration-screen" style="display:none;">
-    <canvas id="reg-bg-canvas"></canvas>
-    <div class="reg-container">
-        <div class="reg-icon-wrapper">
-            <div class="reg-icon-glow"></div>
-            <canvas id="reg-logo" width="90" height="90"></canvas>
-        </div>
-        <h1>Clicker <span class="gradient-text">Online</span></h1>
-        <p class="reg-subtitle">НОВОЕ ПОКОЛЕНИЕ</p>
-        
-        <div class="reg-features">
-            <div class="reg-feature">🎮 Рейтинг</div>
-            <div class="reg-feature">💬 Чат</div>
-            <div class="reg-feature">🏆 Ачивки</div>
-            <div class="reg-feature">⚔️ Арена</div>
-        </div>
-        
-        <div class="input-wrapper">
-            <input type="text" id="nickname-input" placeholder="Введите никнейм..." maxlength="15" autocomplete="off">
-        </div>
-        
-        <div id="reg-error"></div>
-        
-        <button class="reg-btn" id="reg-btn">
-            <span class="btn-text">Начать игру</span>
-            <span class="btn-icon">→</span>
-        </button>
+  <canvas id="reg-bg-canvas"></canvas>
+  <div class="reg-container">
+    <div class="reg-icon-wrapper">
+      <div class="reg-icon-glow"></div>
+      <canvas id="reg-logo" width="90" height="90"></canvas>
     </div>
+    <h1>Clicker <span class="gradient-text">Online</span></h1>
+    <p class="reg-subtitle">НОВОЕ ПОКОЛЕНИЕ</p>
+    <div class="reg-features">
+      <div class="reg-feature">🏆 Рейтинг</div>
+      <div class="reg-feature">💬 Чат</div>
+      <div class="reg-feature">⚔️ Арена</div>
+      <div class="reg-feature">🛡️ Кланы</div>
+    </div>
+    <div class="input-wrapper">
+      <input type="text" id="nickname-input" placeholder="Введите никнейм..." maxlength="15" autocomplete="off">
+    </div>
+    <div id="reg-error"></div>
+    <button class="reg-btn" id="reg-btn">
+      <span class="btn-text">Начать игру</span>
+      <span class="btn-icon">→</span>
+    </button>
+  </div>
 </div>
 
+<!-- ИГРА -->
 <div id="game-screen" style="display:none;">
-    
-    <div class="game-header">
-        <div class="header-left">
-            <div class="header-logo-wrap">
-                <canvas id="header-logo" width="34" height="34"></canvas>
-            </div>
-            <div class="header-title-group">
-                <div class="header-title">CLICKER <span class="gradient-text">ONLINE</span></div>
-                <div class="header-online">🟢 Онлайн: <span id="online-num">0</span></div>
-            </div>
-        </div>
-        
-        <div class="header-right">
-            <div class="header-streak">
-                <span class="streak-icon">🔥</span>
-                <span class="streak-val" id="streak-display">0</span>
-            </div>
-            <div class="header-user" id="header-user-btn" onclick="showProfileModal()">
-                <div class="header-avatar" id="header-avatar">A</div>
-                <div class="header-user-info">
-                    <div class="header-nickname" id="header-nickname">Игрок</div>
-                    <div class="header-level-badge" id="header-level-badge">Ур. 1</div>
-                </div>
-            </div>
-        </div>
+
+  <div class="game-header">
+    <div class="header-left">
+      <div class="header-logo-wrap"><canvas id="header-logo" width="34" height="34"></canvas></div>
+      <div class="header-title-group">
+        <div class="header-title">CLICKER <span class="gradient-text">ONLINE</span></div>
+        <div class="header-online">🟢 Онлайн: <span id="online-num">0</span></div>
+      </div>
     </div>
-    
-    <div class="penalty-banner" id="penalty-banner" style="display:none;">
-        <span class="penalty-icon">🚫</span>
-        <span>ПЕРЕГРЕВ! Подождите...</span>
-        <span class="penalty-timer" id="penalty-timer">20с</span>
+    <div class="header-right">
+      <div class="header-streak">
+        <span class="streak-icon">🔥</span>
+        <span class="streak-val" id="streak-display">0</span>
+      </div>
+      <div class="header-user" onclick="showProfileModal()">
+        <div class="header-avatar" id="header-avatar">A</div>
+        <div class="header-user-info">
+          <div class="header-nickname" id="header-nickname">Игрок</div>
+          <div class="header-sub">
+            <span id="header-level-badge">Ур. 1</span>
+            <span class="header-clan-tag" id="header-clan-tag"></span>
+          </div>
+        </div>
+      </div>
     </div>
-    
-    <div class="game-main">
-        
-        <!-- ЛИДЕРЫ -->
-        <div class="panel panel-left" id="tab-leaderboard">
-            <div class="panel-header">
-                <span class="panel-header-icon">🏆</span>
-                <span>Таблица лидеров</span>
-                <span class="panel-header-badge" id="lb-count">0</span>
-            </div>
-            <div class="leaderboard-list" id="leaderboard-list">
-                <div class="lb-empty">Загрузка...</div>
-            </div>
-        </div>
-        
-        <!-- КЛИКЕР -->
-        <div class="panel panel-center active-tab" id="tab-clicker">
-            
-            <div class="stats-row">
-                <div class="stat-card stat-clicks">
-                    <div class="stat-icon">💎</div>
-                    <div class="stat-body">
-                        <div class="stat-label">Клики</div>
-                        <div class="stat-value" id="clicks-display">0</div>
-                    </div>
-                </div>
-                
-                <div class="stat-card stat-level">
-                    <div class="stat-icon">⭐</div>
-                    <div class="stat-body">
-                        <div class="stat-label">Уровень</div>
-                        <div class="stat-value level-val" id="level-display">1</div>
-                    </div>
-                </div>
-                
-                <div class="stat-card stat-cps">
-                    <div class="stat-icon">⚡</div>
-                    <div class="stat-body">
-                        <div class="stat-label">CPS</div>
-                        <div class="stat-value cps-val" id="cps-display">0</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="clicker-area" id="clicker-area">
-                <!-- Всплывающий текст для Комбо и Удачных кликов (по центру сверху кликера) -->
-                <div id="floating-events-container"></div>
-                
-                <div class="clicker-rings">
-                    <div class="ring ring-1"></div>
-                    <div class="ring ring-2"></div>
-                    <div class="ring ring-3"></div>
-                </div>
-                <canvas id="click-canvas" width="480" height="480"></canvas>
-                <canvas id="particles-canvas"></canvas>
-            </div>
-            
-            <div class="bars-container">
-                <div class="bar-group">
-                    <div class="bar-header">
-                        <div class="bar-label"><span class="bar-icon">⚡</span><span>Энергия</span></div>
-                        <div class="bar-value" id="energy-text">0 / 100</div>
-                    </div>
-                    <div class="bar-bg">
-                        <div class="bar-fill" id="energy-bar" style="width:0%;"></div>
-                    </div>
-                </div>
-                
-                <div class="bar-group">
-                    <div class="bar-header">
-                        <div class="bar-label"><span class="bar-icon">📊</span><span>Прогресс уровня</span></div>
-                        <div class="bar-value" id="level-progress-label">0 / 1000</div>
-                    </div>
-                    <div class="bar-bg">
-                        <div class="bar-fill level-fill" id="level-bar" style="width:0%;"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mini-achievements" id="mini-achievements"></div>
-            
-        </div>
-        
-        <!-- ЧАТ -->
-        <div class="panel panel-right" id="tab-chat">
-            <div class="panel-header">
-                <span class="panel-header-icon">💬</span>
-                <span>Общий чат</span>
-                <span class="chat-rules-btn" onclick="showChatRules()" title="Правила">ℹ️</span>
-            </div>
-            <div class="chat-messages" id="chat-messages">
-                <div class="chat-system-msg">Добро пожаловать в чат!</div>
-            </div>
-            <div class="chat-scroll-controls">
-                <button class="chat-scroll-btn" onclick="chatScrollUp()" title="Вверх">⬆️</button>
-                <button class="chat-scroll-btn" onclick="chatScrollDown()" title="Вниз">⬇️</button>
-            </div>
-            <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Введите сообщение..." maxlength="200" autocomplete="off">
-                <button class="chat-send-btn" id="chat-send-btn">📤</button>
-            </div>
+  </div>
+
+  <div class="penalty-banner" id="penalty-banner" style="display:none;">
+    <span class="penalty-icon">🚫</span>
+    <span>ПЕРЕГРЕВ! Подождите...</span>
+    <span class="penalty-timer" id="penalty-timer">20с</span>
+  </div>
+
+  <div class="game-main">
+
+    <!-- ЛЕВАЯ КОЛОНКА (ПК) / ВКЛАДКИ (МОБИЛЬНЫЕ) -->
+    <div class="side-column">
+      <div class="side-switch">
+        <button class="side-switch-btn active" data-tab="leaderboard" onclick="switchTab('leaderboard')" title="Рейтинг">🏆</button>
+        <button class="side-switch-btn" data-tab="shop" onclick="switchTab('shop')" title="Магазин">🛒</button>
+        <button class="side-switch-btn" data-tab="arena" onclick="switchTab('arena')" title="Арена">⚔️</button>
+        <button class="side-switch-btn" data-tab="clan" onclick="switchTab('clan')" title="Клан">🛡️<span class="mini-badge" id="clan-side-badge" style="display:none;">1</span></button>
+      </div>
+
+      <div class="side-panels">
+
+        <!-- РЕЙТИНГ -->
+        <div class="panel side-active active-tab" id="tab-leaderboard">
+          <div class="panel-header">
+            <span class="panel-header-icon">🏆</span>
+            <span>Таблица лидеров</span>
+            <span class="panel-header-badge" id="lb-count">0</span>
+          </div>
+          <div class="leaderboard-list" id="leaderboard-list">
+            <div class="lb-empty">Загрузка...</div>
+          </div>
         </div>
 
         <!-- МАГАЗИН -->
-        <div class="panel panel-left" id="tab-shop">
-            <div class="panel-header">
-                <span class="panel-header-icon">🛒</span>
-                <span>Магазин улучшений</span>
+        <div class="panel" id="tab-shop">
+          <div class="panel-header">
+            <span class="panel-header-icon">🛒</span>
+            <span>Магазин улучшений</span>
+          </div>
+          <div class="shop-content">
+            <div class="shop-balance">
+              <div class="shop-balance-label">💰 Ваш баланс</div>
+              <div class="shop-balance-value" id="shop-balance">0</div>
             </div>
-            <div class="shop-content">
-                <div class="shop-balance">
-                    <div class="shop-balance-label">💰 Ваш баланс</div>
-                    <div class="shop-balance-value" id="shop-balance">0</div>
-                </div>
-                <div class="shop-items" id="shop-items"></div>
-            </div>
+            <div class="shop-items" id="shop-items"></div>
+          </div>
         </div>
 
         <!-- АРЕНА -->
-        <div class="panel panel-left" id="tab-arena">
-            <div class="panel-header">
-                <span class="panel-header-icon">⚔️</span>
-                <span>Арена</span>
-            </div>
-            <div class="arena-content" id="arena-content">
-                <!-- динамическое содержимое -->
-            </div>
-        </div>
-        
-    </div>
-    
-    <!-- НИЖНЕЕ МЕНЮ (МОБИЛЬНОЕ И ПК, ЕСЛИ ЭКРАН СУЖЕН) -->
-    <div class="bottom-nav">
-        <button class="nav-btn" onclick="switchTab('leaderboard', this)">
-            <span class="nav-icon">🏆</span>
-            <span>Рейтинг</span>
-        </button>
-        <button class="nav-btn" onclick="switchTab('shop', this)">
-            <span class="nav-icon">🛒</span>
-            <span>Магазин</span>
-        </button>
-        <button class="nav-btn active" onclick="switchTab('clicker', this)">
-            <span class="nav-icon nav-icon-main">🎮</span>
-            <span>Игра</span>
-        </button>
-        <button class="nav-btn" onclick="switchTab('arena', this)">
-            <span class="nav-icon">⚔️</span>
+        <div class="panel" id="tab-arena">
+          <div class="panel-header">
+            <span class="panel-header-icon">⚔️</span>
             <span>Арена</span>
-        </button>
-        <button class="nav-btn" onclick="switchTab('chat', this)">
-            <span class="nav-icon">💬</span>
-            <span>Чат</span>
-            <span class="nav-badge" id="chat-badge" style="display:none;">1</span>
-        </button>
-    </div>
-    
-</div>
-
-<!-- МОДАЛКИ -->
-<div class="modal-overlay" id="achievement-modal" style="display:none;" onclick="this.style.display='none'">
-    <div class="modal-card" onclick="event.stopPropagation()">
-        <div class="modal-confetti" id="ach-confetti"></div>
-        <span class="modal-icon" id="ach-modal-icon">🏆</span>
-        <h2 class="modal-title" id="ach-modal-title">Достижение!</h2>
-        <p class="modal-desc" id="ach-modal-desc">Описание</p>
-        <button class="modal-btn" onclick="document.getElementById('achievement-modal').style.display='none'">Супер!</button>
-    </div>
-</div>
-
-<div class="modal-overlay" id="rules-modal" style="display:none;" onclick="this.style.display='none'">
-    <div class="modal-card" onclick="event.stopPropagation()">
-        <span class="modal-icon">📜</span>
-        <h2 class="modal-title">Правила чата</h2>
-        <div class="rules-list">
-            <div class="rule-item">✅ Будьте вежливы и уважительны</div>
-            <div class="rule-item">🚫 Запрещены маты и оскорбления</div>
-            <div class="rule-item">🚫 Запрещён спам</div>
-            <div class="rule-item">🚫 Запрещена реклама</div>
-            <div class="rule-item">💬 Макс. 200 символов в сообщении</div>
+            <span class="panel-header-badge" id="arena-count">0</span>
+          </div>
+          <div class="arena-content" id="arena-content"></div>
         </div>
-        <button class="modal-btn" onclick="document.getElementById('rules-modal').style.display='none'">Понятно</button>
+
+        <!-- КЛАН -->
+        <div class="panel" id="tab-clan">
+          <div class="panel-header">
+            <span class="panel-header-icon">🛡️</span>
+            <span>Клан</span>
+            <span class="panel-header-badge" id="clan-members-count">0/5</span>
+          </div>
+          <div class="clan-content" id="clan-content"></div>
+        </div>
+
+      </div>
     </div>
+
+    <!-- КЛИКЕР -->
+    <div class="panel panel-center active-tab" id="tab-clicker">
+      <div class="stats-row">
+        <div class="stat-card stat-clicks">
+          <div class="stat-icon">💎</div>
+          <div class="stat-body">
+            <div class="stat-label">Клики</div>
+            <div class="stat-value" id="clicks-display">0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-level">
+          <div class="stat-icon">⭐</div>
+          <div class="stat-body">
+            <div class="stat-label">Уровень</div>
+            <div class="stat-value level-val" id="level-display">1</div>
+          </div>
+        </div>
+        <div class="stat-card stat-cps">
+          <div class="stat-icon">⚡</div>
+          <div class="stat-body">
+            <div class="stat-label">CPS</div>
+            <div class="stat-value cps-val" id="cps-display">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="clan-mini" id="clan-mini" onclick="switchTab('clan')">
+        <span>🛡️</span><span id="clan-mini-text">Клан</span>
+      </div>
+
+      <div class="clicker-area" id="clicker-area">
+        <div id="floating-events-container"></div>
+        <div class="clicker-rings">
+          <div class="ring ring-1"></div>
+          <div class="ring ring-2"></div>
+          <div class="ring ring-3"></div>
+        </div>
+        <canvas id="click-canvas" width="480" height="480"></canvas>
+        <canvas id="particles-canvas"></canvas>
+      </div>
+
+      <div class="bars-container">
+        <div class="bar-group">
+          <div class="bar-header">
+            <div class="bar-label"><span>⚡</span><span>Энергия</span></div>
+            <div class="bar-value" id="energy-text">0 / 100</div>
+          </div>
+          <div class="bar-bg"><div class="bar-fill" id="energy-bar" style="width:0%;"></div></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-header">
+            <div class="bar-label"><span>📊</span><span>Прогресс уровня</span></div>
+            <div class="bar-value" id="level-progress-label">0 / 1000</div>
+          </div>
+          <div class="bar-bg"><div class="bar-fill level-fill" id="level-bar" style="width:0%;"></div></div>
+        </div>
+      </div>
+
+      <div class="mini-achievements" id="mini-achievements"></div>
+    </div>
+
+    <!-- ОБЩИЙ ЧАТ -->
+    <div class="panel panel-right" id="tab-chat">
+      <div class="panel-header">
+        <span class="panel-header-icon">💬</span>
+        <span>Общий чат</span>
+        <span class="chat-rules-btn" onclick="showChatRules()" title="Правила">ℹ️</span>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-system-msg">Добро пожаловать в чат! Нажмите на ник, чтобы открыть профиль.</div>
+      </div>
+      <div class="chat-scroll-controls">
+        <button class="chat-scroll-btn" onclick="chatScrollUp()" title="Вверх">⬆️</button>
+        <button class="chat-scroll-btn" onclick="chatScrollDown()" title="Вниз">⬇️</button>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chat-input" placeholder="Введите сообщение..." maxlength="200" autocomplete="off">
+        <button class="chat-send-btn" id="chat-send-btn">📤</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- НИЖНЕЕ МЕНЮ -->
+  <div class="bottom-nav">
+    <button class="nav-btn" data-tab="leaderboard" onclick="switchTab('leaderboard')">
+      <span class="nav-icon">🏆</span><span>Топ</span>
+    </button>
+    <button class="nav-btn" data-tab="shop" onclick="switchTab('shop')">
+      <span class="nav-icon">🛒</span><span>Магазин</span>
+    </button>
+    <button class="nav-btn active" data-tab="clicker" onclick="switchTab('clicker')">
+      <span class="nav-icon nav-icon-main">🎮</span><span>Игра</span>
+    </button>
+    <button class="nav-btn" data-tab="arena" onclick="switchTab('arena')">
+      <span class="nav-icon">⚔️</span><span>Арена</span>
+    </button>
+    <button class="nav-btn" data-tab="clan" onclick="switchTab('clan')">
+      <span class="nav-icon">🛡️</span><span>Клан</span>
+      <span class="nav-badge" id="clan-nav-badge" style="display:none;">1</span>
+    </button>
+    <button class="nav-btn" data-tab="chat" onclick="switchTab('chat')">
+      <span class="nav-icon">💬</span><span>Чат</span>
+      <span class="nav-badge" id="chat-badge" style="display:none;">1</span>
+    </button>
+  </div>
+
 </div>
 
-<div class="modal-overlay" id="profile-modal" style="display:none;" onclick="this.style.display='none'">
-    <div class="modal-card" onclick="event.stopPropagation()">
-        <span class="modal-icon">👤</span>
-        <h2 class="modal-title" id="profile-modal-nick">Профиль</h2>
-        <p class="modal-desc">Смена никнейма стоит <strong>10 000</strong> кликов</p>
-        <div class="input-wrapper" style="margin-bottom:12px;">
-            <input type="text" id="new-nick-input" placeholder="Новый никнейм..." maxlength="15" autocomplete="off">
-        </div>
-        <div id="nick-change-error" style="color:var(--danger);font-size:13px;margin-bottom:10px;min-height:18px;font-weight:600;"></div>
-        <button class="modal-btn" onclick="changeNickname()">Сменить за 💎10 000</button>
-        <button class="modal-btn secondary" onclick="document.getElementById('profile-modal').style.display='none'">Закрыть</button>
-    </div>
+<!-- ================= МОДАЛКИ ================= -->
+
+<!-- Достижение -->
+<div class="modal-overlay" id="achievement-modal" style="display:none;" onclick="closeModal('achievement-modal')">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-confetti" id="ach-confetti"></div>
+    <span class="modal-icon" id="ach-modal-icon">🏆</span>
+    <h2 class="modal-title" id="ach-modal-title">Достижение!</h2>
+    <p class="modal-desc" id="ach-modal-desc">Описание</p>
+    <button class="modal-btn" onclick="closeModal('achievement-modal')">Супер!</button>
+  </div>
 </div>
 
-<div class="modal-overlay" id="create-room-modal" style="display:none;" onclick="this.style.display='none'">
-    <div class="modal-card" onclick="event.stopPropagation()">
-        <span class="modal-icon">⚔️</span>
-        <h2 class="modal-title">Создать комнату</h2>
-        <div class="create-room-form">
-            <div class="form-group">
-                <label class="form-label">Название комнаты</label>
-                <input type="text" class="form-input" id="room-name-input" placeholder="Моя арена" maxlength="20">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Ставка (кликов)</label>
-                <input type="number" class="form-input" id="room-bet-input" placeholder="100" min="10" max="100000">
-                <div class="form-hint">Мин. 10, Макс. 100 000</div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Макс. игроков (2-5)</label>
-                <input type="number" class="form-input" id="room-max-input" placeholder="2" min="2" max="5" value="2">
-            </div>
-        </div>
-        <div id="create-room-error" style="color:var(--danger);font-size:13px;margin-bottom:10px;min-height:18px;font-weight:600;"></div>
-        <button class="modal-btn" onclick="createRoom()">Создать (Ставка спишется)</button>
-        <button class="modal-btn secondary" onclick="document.getElementById('create-room-modal').style.display='none'">Отмена</button>
+<!-- Правила чата -->
+<div class="modal-overlay" id="rules-modal" style="display:none;" onclick="closeModal('rules-modal')">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <span class="modal-icon">📜</span>
+    <h2 class="modal-title">Правила чата</h2>
+    <div class="rules-list">
+      <div class="rule-item">✅ Будьте вежливы и уважительны</div>
+      <div class="rule-item">🚫 Запрещены маты и оскорбления</div>
+      <div class="rule-item">🚫 Запрещён спам и реклама</div>
+      <div class="rule-item">💬 Макс. 200 символов в сообщении</div>
+      <div class="rule-item">👆 Нажмите на ник — откроется профиль игрока</div>
     </div>
+    <button class="modal-btn" onclick="closeModal('rules-modal')">Понятно</button>
+  </div>
+</div>
+
+<!-- Свой профиль -->
+<div class="modal-overlay" id="profile-modal" style="display:none;" onclick="closeModal('profile-modal')">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="big-avatar" id="profile-avatar">A</div>
+    <h2 class="modal-title" id="profile-modal-nick">Профиль</h2>
+    <p class="modal-desc" id="profile-modal-clan" style="margin-bottom:14px;">Без клана</p>
+    <div class="profile-stats">
+      <div class="pstat"><div class="pstat-v" id="profile-clicks">0</div><div class="pstat-l">Клики</div></div>
+      <div class="pstat"><div class="pstat-v" id="profile-level">1</div><div class="pstat-l">Уровень</div></div>
+      <div class="pstat"><div class="pstat-v" id="profile-combo">0</div><div class="pstat-l">Макс комбо</div></div>
+    </div>
+    <div class="divider"></div>
+    <p class="modal-desc" style="margin-bottom:12px;">Смена никнейма стоит <strong>10 000</strong> кликов</p>
+    <div class="input-wrapper" style="margin-bottom:6px;">
+      <input type="text" id="new-nick-input" placeholder="Новый никнейм..." maxlength="15" autocomplete="off">
+    </div>
+    <div class="modal-err" id="nick-change-error"></div>
+    <button class="modal-btn" onclick="changeNickname()">Сменить за 💎 10 000</button>
+    <button class="modal-btn secondary" onclick="closeModal('profile-modal')">Закрыть</button>
+  </div>
+</div>
+
+<!-- Профиль другого игрока -->
+<div class="modal-overlay" id="player-modal" style="display:none;" onclick="closeModal('player-modal')">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="big-avatar" id="pm-avatar">A</div>
+    <h2 class="modal-title" id="pm-nick">Игрок</h2>
+    <p class="modal-desc" id="pm-status" style="margin-bottom:14px;">Оффлайн</p>
+    <div class="profile-stats">
+      <div class="pstat"><div class="pstat-v" id="pm-clicks">0</div><div class="pstat-l">Клики</div></div>
+      <div class="pstat"><div class="pstat-v" id="pm-level">1</div><div class="pstat-l">Уровень</div></div>
+      <div class="pstat"><div class="pstat-v" id="pm-clan">—</div><div class="pstat-l">Клан</div></div>
+    </div>
+    <div class="modal-err" id="pm-error"></div>
+    <div id="pm-actions"></div>
+    <button class="modal-btn secondary" onclick="closeModal('player-modal')">Закрыть</button>
+  </div>
+</div>
+
+<!-- Создание комнаты -->
+<div class="modal-overlay" id="create-room-modal" style="display:none;" onclick="closeModal('create-room-modal')">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <span class="modal-icon">⚔️</span>
+    <h2 class="modal-title">Создать комнату</h2>
+    <p class="modal-desc" style="margin-bottom:16px;">Кто дольше удержит кнопку — забирает весь банк!</p>
+    <div class="create-room-form">
+      <div class="form-group">
+        <label class="form-label">Название комнаты</label>
+        <input type="text" class="form-input" id="room-name-input" placeholder="Моя арена" maxlength="20" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ставка (кликов)</label>
+        <input type="number" class="form-input" id="room-bet-input" placeholder="100" min="10" max="100000" value="100">
+        <div class="chip-row">
+          <span class="chip" onclick="setBet(50)">50</span>
+          <span class="chip" onclick="setBet(100)">100</span>
+          <span class="chip" onclick="setBet(500)">500</span>
+          <span class="chip" onclick="setBet(1000)">1K</span>
+          <span class="chip" onclick="setBet(10000)">10K</span>
+        </div>
+        <div class="form-hint">Мин. 10 — Макс. 100 000</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Макс. игроков</label>
+        <input type="number" class="form-input" id="room-max-input" placeholder="2" min="2" max="5" value="2">
+        <div class="form-hint">От 2 до 5 игроков</div>
+      </div>
+    </div>
+    <div class="modal-err" id="create-room-error"></div>
+    <button class="modal-btn" id="create-room-btn" onclick="createRoom()">Создать (ставка спишется)</button>
+    <button class="modal-btn secondary" onclick="closeModal('create-room-modal')">Отмена</button>
+  </div>
+</div>
+
+<!-- Создание клана -->
+<div class="modal-overlay" id="create-clan-modal" style="display:none;" onclick="closeModal('create-clan-modal')">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <span class="modal-icon">🛡️</span>
+    <h2 class="modal-title">Создать клан</h2>
+    <p class="modal-desc" style="margin-bottom:16px;">Стоимость: <strong style="color:var(--accent-gold)">💎 5 000</strong> кликов. До 5 участников.</p>
+    <div class="create-clan-form">
+      <div class="form-group">
+        <label class="form-label">Название клана</label>
+        <input type="text" class="form-input" id="clan-name-input" placeholder="Легенды клика" maxlength="18" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Тег (2-4 символа)</label>
+        <input type="text" class="form-input" id="clan-tag-input" placeholder="LGD" maxlength="4" autocomplete="off">
+        <div class="form-hint">Отображается рядом с ником: [LGD] Игрок</div>
+      </div>
+    </div>
+    <div class="modal-err" id="create-clan-error"></div>
+    <button class="modal-btn green" onclick="createClan()">Создать за 💎 5 000</button>
+    <button class="modal-btn secondary" onclick="closeModal('create-clan-modal')">Отмена</button>
+  </div>
+</div>
+
+<!-- Приглашение в клан (входящее) -->
+<div class="modal-overlay" id="clan-invite-modal" style="display:none;" onclick="closeModal('clan-invite-modal')">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <span class="modal-icon">📨</span>
+    <h2 class="modal-title">Приглашение в клан</h2>
+    <p class="modal-desc" id="clan-invite-text">Вас приглашают в клан</p>
+    <button class="modal-btn green" id="clan-invite-accept">✅ Принять</button>
+    <button class="modal-btn secondary" id="clan-invite-decline">❌ Отклонить</button>
+  </div>
+</div>
+
+<!-- Универсальное подтверждение -->
+<div class="modal-overlay" id="confirm-modal" style="display:none;" onclick="closeModal('confirm-modal')">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <span class="modal-icon" id="confirm-icon">❓</span>
+    <h2 class="modal-title" id="confirm-title">Подтверждение</h2>
+    <p class="modal-desc" id="confirm-text">Вы уверены?</p>
+    <button class="modal-btn danger" id="confirm-yes">Да</button>
+    <button class="modal-btn secondary" onclick="closeModal('confirm-modal')">Отмена</button>
+  </div>
 </div>
 
 <div id="toast-container"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
 <script src="game.js"></script>
 
 </body>
