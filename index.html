@@ -426,6 +426,32 @@ input{user-select:text;-webkit-user-select:text}
   .clicker-rings{display:none}
   #click-canvas{width:170px;height:170px}
 }
+/* ============ МИНИ-ИГРЫ ============ */
+.mg-grid { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.mg-card { background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 12px; cursor: pointer; transition: var(--transition-fast); text-align: center; }
+.mg-card:hover { border-color: var(--accent); background: rgba(124,92,252,.1); transform: translateY(-2px); }
+.mg-icon { font-size: 38px; margin-bottom: 10px; }
+.mg-title { font-size: 16px; font-weight: 900; color: #fff; margin-bottom: 6px; }
+.mg-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+
+/* ============ АПГРЕЙДЕР (КРУГОВАЯ РУЛЕТКА) ============ */
+.upg-container { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.upg-row { display: flex; gap: 10px; }
+.upg-box { flex: 1; background: rgba(0,0,0,.2); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-light); }
+.upg-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 800; text-transform: uppercase;}
+.upg-input { width: 100%; background: transparent; border: none; color: #fff; font-size: 20px; font-weight: 900; outline: none; font-family: inherit; }
+
+/* Само колесо */
+.upg-circle-wrap { position: relative; width: 240px; height: 240px; margin: 10px auto; display: flex; align-items: center; justify-content: center; }
+.upg-svg { transform: rotate(-90deg); width: 100%; height: 100%; position: absolute; inset: 0; z-index: 1; }
+.upg-bg-ring { fill: none; stroke: rgba(255,255,255,0.04); stroke-width: 12; }
+.upg-win-ring { fill: none; stroke: var(--success); stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset 0.4s ease, stroke 0.4s ease; filter: drop-shadow(0 0 8px currentColor); }
+.upg-center-text { position: relative; z-index: 2; text-align: center; display: flex; flex-direction: column; }
+.upg-chance-val { font-size: 38px; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+.upg-chance-lbl { font-size: 12px; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; margin-top: 6px; letter-spacing: 1px;}
+
+/* Стрелка-указатель */
+.upg-pointer-box { position: absolute; inset: 0; z-index: 3; transition: transform 3.5s cubic-bezier(0.15, 0.85, 0.1, 1); }
 </style>
 </head>
 <body>
@@ -742,17 +768,28 @@ input{user-select:text;-webkit-user-select:text}
   </div>
 </div>
 
-<!-- Создание комнаты -->
+<!-- Создание комнаты (Мини-игры) -->
 <div class="modal-overlay" id="create-room-modal" style="display:none;" onclick="closeModal('create-room-modal')">
   <div class="modal-card" onclick="event.stopPropagation()">
-    <span class="modal-icon">⚔️</span>
-    <h2 class="modal-title">Создать комнату</h2>
-    <p class="modal-desc" style="margin-bottom:16px;">Кто дольше удержит кнопку — забирает весь банк!</p>
+    <span class="modal-icon">🎲</span>
+    <h2 class="modal-title">Создать игру</h2>
+    <p class="modal-desc" style="margin-bottom:16px;">Соревнуйтесь с другими игроками и забирайте весь банк!</p>
     <div class="create-room-form">
+      
       <div class="form-group">
         <label class="form-label">Название комнаты</label>
-        <input type="text" class="form-input" id="room-name-input" placeholder="Моя арена" maxlength="20" autocomplete="off">
+        <input type="text" class="form-input" id="room-name-input" placeholder="Моя игра" maxlength="20" autocomplete="off">
       </div>
+
+      <div class="form-group">
+        <label class="form-label">Режим игры</label>
+        <select class="form-input" id="room-type-input" style="cursor: pointer;">
+          <option value="hold">🔥 Удержание кнопки</option>
+          <option value="time">⏱ Чувство времени</option>
+        </select>
+        <div class="form-hint" style="margin-top:6px;"><b>Удержание:</b> кто дольше держит кнопку<br><b>Время:</b> остановите секундомер точнее всех</div>
+      </div>
+
       <div class="form-group">
         <label class="form-label">Ставка (кликов)</label>
         <input type="number" class="form-input" id="room-bet-input" placeholder="100" min="10" max="100000" value="100">
@@ -765,11 +802,13 @@ input{user-select:text;-webkit-user-select:text}
         </div>
         <div class="form-hint">Мин. 10 — Макс. 100 000</div>
       </div>
+
       <div class="form-group">
         <label class="form-label">Макс. игроков</label>
         <input type="number" class="form-input" id="room-max-input" placeholder="2" min="2" max="5" value="2">
         <div class="form-hint">От 2 до 5 игроков</div>
       </div>
+
     </div>
     <div class="modal-err" id="create-room-error"></div>
     <button class="modal-btn" id="create-room-btn" onclick="createRoom()">Создать (ставка спишется)</button>
