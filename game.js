@@ -1,14 +1,13 @@
 /* ============================================================
-   CLICKER ONLINE — game.js  (полная версия)
-   ✔ Исправлен таймер арены (локальный тик + серверное время)
-   ✔ Исправлено двойное списание/потеря ставок (система inbox)
-   ✔ Исправлены утечки слушателей и «фантомные» комнаты
-   ✔ Чат внутри комнаты арены
-   ✔ Кланы (до 5 игроков, +10% сокланам)
+   CLICKER ONLINE — game.js (ПОЛНАЯ ФИНАЛЬНАЯ ВЕРСИЯ)
+   ✔ Исправленный перегрев (20с, сохранение при перезагрузке)
+   ✔ Магазин на 24 часа + косметика
+   ✔ Мини-игры (Апгрейдер-рулетка, Арена "Удержание" и "Время")
+   ✔ Система наказаний (isClown)
    ============================================================ */
 
 // ============================================================
-// FIREBASE CONFIG
+// ФАЙРБЕЙЗ КОНФИГ
 // ============================================================
 const firebaseConfig = {
     apiKey: "AIzaSyDunk-eA8oiY4SwbCql0D-h9EyVYL-wwiA",
@@ -34,11 +33,12 @@ const STATE = {
     level: parseInt(localStorage.getItem('cv_level')) || 1,
     streak: parseInt(localStorage.getItem('cv_streak')) || 0,
     lastLoginDate: localStorage.getItem('cv_lastlogin') || '',
+    isClown: false, // Флаг наказания
 
     energy: 100,
     maxEnergy: 100,
     energyCost: 1,
-    energyRegen: 4,          // 2 ед/сек
+    energyRegen: 2,
     clicksPerLevel: 1000,
     multiplier: 1,
 
@@ -70,12 +70,12 @@ const STATE = {
     clan: null,
     clanInvites: {},
     seenInvites: new Set(),
-    clanPending: 0,          // накопленные 10% для раздачи
-    clanEarnWindow: 0,       // заработано с последней раздачи
+    clanPending: 0,
+    clanEarnWindow: 0,
     clanBonus: parseInt(localStorage.getItem('cv_clanbonus')) || 0,
     clanToastBuf: 0,
 
-    // АРЕНА
+    // АРЕНА / МИНИ-ИГРЫ
     currentRoomId: null,
     roomData: null,
     roomChat: [],
@@ -90,32 +90,48 @@ const STATE = {
 };
 
 function nowTs() { return Date.now() + STATE.serverOffset; }
-
 db.ref('.info/serverTimeOffset').on('value', s => { STATE.serverOffset = s.val() || 0; });
 
+// Вспомогательная функция для получения уровня с учетом 24 часов
+function getUpLvl(id) {
+    const u = STATE.upgrades[id];
+    return (u && u.level && u.expiresAt > Date.now()) ? u.level : 0;
+}
+
 // ============================================================
-// УЛУЧШЕНИЯ (новые цены: /10 + 10 000)
+// ОГРОМНЫЙ МАГАЗИН (Улучшения на 24 часа)
 // ============================================================
 const UPGRADES = [
-    { id: 'click_multiplier_1',  name: 'Мощность клика',    icon: '💪', desc: '+1 очко за каждый клик',                    baseCost: 11500, maxLevel: 10 },
-    { id: 'auto_clicker_1',      name: 'Авто-шахтёр',       icon: '🤖', desc: 'Пассивно +1 клик/сек (без траты энергии)',  baseCost: 14000, maxLevel: 10 },
-    { id: 'crit_chance_1',       name: 'Критический удар',  icon: '⚡', desc: '3% шанс ударить на x5 очков',               baseCost: 16000, maxLevel: 5  },
-    { id: 'combo_boost_1',       name: 'Мастер комбо',      icon: '🔥', desc: '+15% времени на удержание комбо',           baseCost: 12500, maxLevel: 5  },
-    { id: 'lucky_click_1',       name: 'Удачливость',       icon: '🍀', desc: '5% шанс получить x2 за клик',               baseCost: 15000, maxLevel: 5  },
-    { id: 'penalty_reduction_1', name: 'Охлаждение',        icon: '❄️', desc: '-2 сек. времени перегрева',                 baseCost: 13000, maxLevel: 5  },
-    { id: 'chat_color_1',        name: 'Цветной никнейм',   icon: '🎨', desc: 'Уникальный цвет в чате',                    baseCost: 20000, maxLevel: 1  },
-    { id: 'chat_badge_1',        name: 'VIP бейдж',         icon: '⭐', desc: 'Звёздочка рядом с ником',                   baseCost: 35000, maxLevel: 1  }
+    // Боевые улучшения
+    { id: 'click_multiplier', name: 'Стероиды клика',    icon: '💪', desc: '+1 очко за клик',               baseCost: 15000,   maxLevel: 10 },
+    { id: 'auto_clicker',     name: 'Кибер-шахтёр',      icon: '🤖', desc: '+1 клик/сек пассивно',          baseCost: 20000,   maxLevel: 10 },
+    { id: 'crit_chance',      name: 'Шанс Крита',        icon: '⚡', desc: '3% шанс на удар x5',            baseCost: 25000,   maxLevel: 5  },
+    { id: 'lucky_click',      name: 'Поцелуй Фортуны',   icon: '🍀', desc: '5% шанс получить x2',           baseCost: 30000,   maxLevel: 5  },
+    
+    // Дешевая косметика
+    { id: 'color_gold',       name: 'Золотой ник',       icon: '🎨', desc: 'Никнейм золотого цвета',        baseCost: 100000,  maxLevel: 1 },
+    { id: 'color_neon',       name: 'Неоновый ник',      icon: '🌈', desc: 'Переливающийся цвет ника',      baseCost: 500000,  maxLevel: 1 },
+    
+    // Значки (иконки)
+    { id: 'icon_star',        name: 'Значок: Звезда',    icon: '⭐', desc: 'Звезда рядом с ником',          baseCost: 250000,  maxLevel: 1 },
+    { id: 'icon_diamond',     name: 'Значок: Алмаз',     icon: '💎', desc: 'Алмаз рядом с ником',           baseCost: 1000000, maxLevel: 1 },
+    { id: 'icon_crown',       name: 'Значок: Корона',    icon: '👑', desc: 'Корона победителя',             baseCost: 5000000, maxLevel: 1 },
+    { id: 'icon_dragon',      name: 'Значок: Дракон',    icon: '🐉', desc: 'Мифический знак в чате',        baseCost: 15000000, maxLevel: 1 },
+    
+    // Префиксы (Статусы)
+    { id: 'prefix_vip',       name: 'Статус [VIP]',      icon: '🏷️', desc: 'Префикс VIP в топе и чате',      baseCost: 2000000,  maxLevel: 1 },
+    { id: 'prefix_pro',       name: 'Статус [PRO]',      icon: '🔥', desc: 'Для настоящих профи',           baseCost: 8000000,  maxLevel: 1 },
+    { id: 'prefix_legend',    name: 'Статус [LEGEND]',   icon: '⚡', desc: 'Легендарный префикс',           baseCost: 25000000, maxLevel: 1 },
+    { id: 'prefix_boss',      name: 'Статус [BOSS]',     icon: '👹', desc: 'Только для боссов кликера',     baseCost: 50000000, maxLevel: 1 },
+    { id: 'prefix_god',       name: 'Статус [GOD]',      icon: '👁️', desc: 'Божественный префикс',          baseCost: 100000000, maxLevel: 1 }
 ];
-
-if (!STATE.upgrades || typeof STATE.upgrades !== 'object') STATE.upgrades = {};
-UPGRADES.forEach(u => { if (STATE.upgrades[u.id] === undefined) STATE.upgrades[u.id] = 0; });
 
 const CLAN_COST = 5000;
 const CLAN_MAX = 5;
 const CLAN_SHARE = 0.10;
 
 // ============================================================
-// ФИЛЬТР МАТОВ  (баг: /g + .test() сохранял lastIndex → чинено)
+// ФИЛЬТР МАТОВ
 // ============================================================
 const BAD_SOURCES = [
     '[хx][уy][йиеёяюijею]', '[пp][иieё][зз3][дd][аеёоуыэюяaeiouy]', '[бb6][лl][яьъ]',
@@ -176,7 +192,7 @@ const ACHIEVEMENTS_DEF = [
     { id: 'level10',    name: 'Ур. 10',           icon: '🌟', desc: 'Достигните 10 уровня',      check: () => STATE.level >= 10 },
     { id: 'combo20',    name: 'Комбо 20',         icon: '🔥', desc: 'Наберите комбо 20',         check: () => STATE.maxCombo >= 20 },
     { id: 'cps8',       name: 'Скорострел',       icon: '⚡', desc: '8+ кликов/сек',             check: () => STATE.currentCps >= 8 },
-    { id: 'shopper1',   name: 'Первая покупка',   icon: '🛒', desc: 'Купите улучшение',          check: () => Object.values(STATE.upgrades).some(v => v > 0) },
+    { id: 'shopper1',   name: 'Первая покупка',   icon: '🛒', desc: 'Купите улучшение',          check: () => Object.values(STATE.upgrades).some(v => v.level > 0) },
     { id: 'clanman',    name: 'Не один',          icon: '🛡️', desc: 'Вступите в клан',           check: () => !!STATE.clanId },
     { id: 'arenawin',   name: 'Гладиатор',        icon: '👑', desc: 'Победа на арене',           check: () => localStorage.getItem('cv_arenawin') === '1' }
 ];
@@ -216,20 +232,43 @@ function updateMiniAchievements() {
 }
 
 // ============================================================
-// ШТРАФ / ПЕРЕГРЕВ
+// ПЕРЕГРЕВ И ВОССТАНОВЛЕНИЕ ЭНЕРГИИ (СОХРАНЯЕТСЯ ПРИ РЕЛОАДЕ)
 // ============================================================
+function checkSavedPenalty() {
+    const raw = localStorage.getItem('cv_penaltyEnd');
+    const penaltyEnd = raw ? Number(raw) : 0;
+    const now = Date.now();
+
+    if (penaltyEnd && !isNaN(penaltyEnd) && penaltyEnd > now) {
+        STATE.penaltyActive = true;
+        STATE.penaltyTimer = (penaltyEnd - now) / 1000;
+        STATE.energy = 0;
+        const b = document.getElementById('penalty-banner');
+        if (b) b.style.display = 'flex';
+        const cv = document.getElementById('click-canvas');
+        if (cv) cv.classList.add('penalty-mode');
+    } else {
+        localStorage.removeItem('cv_penaltyEnd');
+        STATE.penaltyActive = false;
+        STATE.penaltyTimer = 0;
+    }
+}
+
 function activatePenalty(silent) {
     if (STATE.penaltyActive) return;
     STATE.penaltyActive = true;
-    const dur = 20 - (STATE.upgrades.penalty_reduction_1 || 0) * 2;
-    STATE.penaltyTimer = Math.max(5, dur);
+    STATE.penaltyTimer = 20; 
     STATE.energy = 0;
+    
+    localStorage.setItem('cv_penaltyEnd', String(Date.now() + 20000));
+
     const b = document.getElementById('penalty-banner');
     if (b) b.style.display = 'flex';
     const cv = document.getElementById('click-canvas');
     if (cv) cv.classList.add('penalty-mode');
+    
     if (!silent) {
-        showToast('🚫 Перегрев! ' + Math.ceil(STATE.penaltyTimer) + ' сек перезарядка', 'danger');
+        showToast('🚫 Перегрев! 20 сек перезарядка', 'danger');
         playPenaltySound();
         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
     }
@@ -237,25 +276,39 @@ function activatePenalty(silent) {
 
 function updatePenaltyTimer() {
     if (!STATE.penaltyActive) return;
-    STATE.penaltyTimer -= 0.1;
+    
+    const raw = localStorage.getItem('cv_penaltyEnd');
+    const penaltyEnd = raw ? Number(raw) : 0;
+    const now = Date.now();
+
+    if (penaltyEnd && !isNaN(penaltyEnd) && penaltyEnd > now) {
+        STATE.penaltyTimer = (penaltyEnd - now) / 1000;
+    } else {
+        STATE.penaltyTimer -= 0.1;
+    }
+
     const el = document.getElementById('penalty-timer');
     if (el) el.textContent = Math.max(0, Math.ceil(STATE.penaltyTimer)) + 'с';
     STATE.energy = 0;
-    if (STATE.penaltyTimer <= 0) endPenalty();
+
+    if (isNaN(STATE.penaltyTimer) || STATE.penaltyTimer <= 0) {
+        endPenalty();
+    }
 }
 
 function endPenalty() {
     STATE.penaltyActive = false;
+    STATE.penaltyTimer = 0;
+    STATE.energy = 0; 
+    localStorage.removeItem('cv_penaltyEnd');
+
     const b = document.getElementById('penalty-banner');
     if (b) b.style.display = 'none';
     const cv = document.getElementById('click-canvas');
     if (cv) cv.classList.remove('penalty-mode');
-    if (!STATE.warmupDone) {           // стартовый «прогрев» — сразу полная энергия
-        STATE.warmupDone = true;
-        STATE.energy = STATE.maxEnergy;
-    } else {
-        showToast('✅ Перезарядка завершена!', 'success');
-    }
+    
+    showToast('✅ Перезарядка завершена! Энергия восстанавливается...', 'success');
+    updateUI();
 }
 
 // ============================================================
@@ -407,8 +460,8 @@ function askConfirm(icon, title, text, onYes) {
 function showChatRules() { openModal('rules-modal'); }
 
 function showProfileModal() {
-    document.getElementById('profile-avatar').textContent = (STATE.nickname || 'A').charAt(0).toUpperCase();
-    document.getElementById('profile-modal-nick').textContent = STATE.nickname;
+    document.getElementById('profile-avatar').textContent = STATE.isClown ? '🤡' : (STATE.nickname || 'A').charAt(0).toUpperCase();
+    document.getElementById('profile-modal-nick').textContent = STATE.isClown ? "🤡 " + STATE.nickname : STATE.nickname;
     document.getElementById('profile-modal-clan').textContent =
         STATE.clan ? `🛡️ [${STATE.clan.tag}] ${STATE.clan.name}` : 'Без клана';
     document.getElementById('profile-clicks').textContent = fmt(STATE.clicks);
@@ -420,9 +473,16 @@ function showProfileModal() {
 }
 
 function changeNickname() {
+    // ЖЕЛЕЗОБЕТОННАЯ БЛОКИРОВКА КЛОУНОВ
+    if (STATE.isClown) {
+        document.getElementById('nick-change-error').textContent = '🚫 Опущенным водолазам запрещено менять имя!';
+        return;
+    }
+
     const input = document.getElementById('new-nick-input');
     const nick = input.value.trim();
     const err = document.getElementById('nick-change-error');
+    
     if (nick.length < 2) { err.textContent = '⚠️ Минимум 2 символа'; return; }
     if (nick.length > 15) { err.textContent = '⚠️ Максимум 15 символов'; return; }
     if (containsBadWords(nick)) { err.textContent = '🚫 Недопустимое имя'; return; }
@@ -444,7 +504,6 @@ function changeNickname() {
     showToast('✅ Никнейм изменён на «' + escapeHtml(nick) + '»', 'success');
 }
 
-// Профиль другого игрока (клик по строке в топе или по нику в чате)
 function openPlayerModal(uid) {
     if (!uid || uid === STATE.userId) { showProfileModal(); return; }
     document.getElementById('pm-error').textContent = '';
@@ -455,9 +514,15 @@ function openPlayerModal(uid) {
         const u = snap.val();
         if (!u) { document.getElementById('pm-error').textContent = 'Игрок не найден'; return; }
         const nick = u.nickname || 'Аноним';
-        document.getElementById('pm-avatar').textContent = nick.charAt(0).toUpperCase();
+        const isClown = u.isClown === true;
+
+        document.getElementById('pm-avatar').textContent = isClown ? '🤡' : nick.charAt(0).toUpperCase();
         document.getElementById('pm-nick').textContent = nick;
-        document.getElementById('pm-status').textContent = STATE.onlineUsers[uid] ? '🟢 Сейчас в игре' : '⚫ Оффлайн';
+        
+        document.getElementById('pm-status').innerHTML = isClown 
+            ? '<span style="color:#ff4757; font-weight:800;">🤡 Опущенный водолаз</span>'
+            : (STATE.onlineUsers[uid] ? '🟢 Сейчас в игре' : '⚫ Оффлайн');
+
         document.getElementById('pm-clicks').textContent = fmt(u.clicks);
         document.getElementById('pm-level').textContent = u.level || 1;
         document.getElementById('pm-clan').textContent = u.clanTag ? '[' + u.clanTag + ']' : '—';
@@ -492,14 +557,11 @@ function openPlayerModal(uid) {
     }).catch(() => { document.getElementById('pm-error').textContent = 'Ошибка загрузки'; });
 }
 
-// ============================================================
-// СКРОЛЛ ЧАТА
-// ============================================================
 function chatScrollUp() { const c = document.getElementById('chat-messages'); if (c) c.scrollBy({ top: -180, behavior: 'smooth' }); }
 function chatScrollDown() { const c = document.getElementById('chat-messages'); if (c) c.scrollBy({ top: 180, behavior: 'smooth' }); }
 
 // ============================================================
-// ЧАСТИЦЫ
+// ЧАСТИЦЫ И КНОПКА
 // ============================================================
 function spawnParticles(x, y, count = 8) {
     for (let i = 0; i < count; i++) {
@@ -554,9 +616,6 @@ function drawStar(ctx, x, y, r) {
     ctx.closePath(); ctx.fill();
 }
 
-// ============================================================
-// РИСОВАНИЕ КНОПКИ КЛИКЕРА
-// ============================================================
 function drawClickButton() {
     const canvas = document.getElementById('click-canvas');
     if (!canvas) { requestAnimationFrame(drawClickButton); return; }
@@ -568,35 +627,44 @@ function drawClickButton() {
 
     ctx.beginPath();
     ctx.arc(cx, cx, r + 30, 0, Math.PI * 2);
-    ctx.fillStyle = STATE.penaltyActive ? 'rgba(255,71,87,0.15)' : `hsla(${(Date.now() / 30) % 360},70%,60%,0.08)`;
+    ctx.fillStyle = STATE.penaltyActive ? 'rgba(255, 71, 87, 0.3)' : `hsla(${(Date.now() / 30) % 360},70%,60%,0.08)`;
     ctx.fill();
 
     ctx.beginPath(); ctx.arc(cx, cx + 6, r, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
 
     ctx.beginPath(); ctx.arc(cx, cx, r, 0, Math.PI * 2);
     const g = ctx.createRadialGradient(cx - r * 0.3, cx - r * 0.3, 0, cx, cx, r);
-    if (STATE.penaltyActive) { g.addColorStop(0, '#ff6b6b'); g.addColorStop(1, '#c0392b'); }
-    else { g.addColorStop(0, '#a78bfa'); g.addColorStop(1, '#5a3ce0'); }
+    if (STATE.penaltyActive) {
+        g.addColorStop(0, '#ff4757');
+        g.addColorStop(0.6, '#d63031');
+        g.addColorStop(1, '#8b0000');
+    } else {
+        g.addColorStop(0, '#a78bfa');
+        g.addColorStop(1, '#5a3ce0');
+    }
     ctx.fillStyle = g; ctx.fill();
 
     ctx.beginPath(); ctx.arc(cx - r * 0.15, cx - r * 0.2, r * 0.55, 0, Math.PI * 2);
     const hg = ctx.createRadialGradient(cx - r * 0.15, cx - r * 0.3, 0, cx - r * 0.15, cx - r * 0.2, r * 0.55);
-    hg.addColorStop(0, 'rgba(255,255,255,0.2)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
+    hg.addColorStop(0, 'rgba(255,255,255,0.25)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = hg; ctx.fill();
 
-    const pct = Math.max(0, Math.min(1, STATE.energy / STATE.maxEnergy));
+    const pct = STATE.penaltyActive 
+        ? Math.max(0, Math.min(1, 1 - (STATE.penaltyTimer / 20)))
+        : Math.max(0, Math.min(1, STATE.energy / STATE.maxEnergy));
+
     ctx.beginPath();
-    ctx.arc(cx, cx, r + 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+    ctx.arc(cx, cx, r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
     ctx.strokeStyle = STATE.penaltyActive ? '#ff4757' : pct > 0.3 ? '#06d6a0' : pct > 0.1 ? '#ffa502' : '#ff4757';
-    ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.stroke();
 
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (STATE.penaltyActive) {
         ctx.font = `800 ${w * 0.07}px Inter, sans-serif`;
-        ctx.fillText('ПЕРЕГРЕВ', cx, cx - 10);
-        ctx.font = `900 ${w * 0.12}px Inter, sans-serif`;
-        ctx.fillText(Math.max(0, Math.ceil(STATE.penaltyTimer)) + 'с', cx, cx + 20);
+        ctx.fillText('ПЕРЕГРЕВ', cx, cx - 12);
+        ctx.font = `900 ${w * 0.11}px Inter, sans-serif`;
+        ctx.fillText(Math.max(0, Math.ceil(STATE.penaltyTimer)) + 'с', cx, cx + 18);
     } else {
         ctx.font = `900 ${w * 0.13}px Inter, sans-serif`;
         ctx.fillText('КЛИК', cx, cx);
@@ -610,7 +678,7 @@ function drawClickButton() {
 }
 
 // ============================================================
-// РЕГИСТРАЦИЯ / ЗАПУСК
+// РЕГИСТРАЦИЯ И СТАРТ
 // ============================================================
 function register() {
     const input = document.getElementById('nickname-input');
@@ -655,7 +723,6 @@ function startGame() {
     updateMiniAchievements();
     checkDailyStreak();
 
-    // Подтягиваем серверные данные (клан, максимум кликов)
     db.ref('users/' + STATE.userId).once('value').then(snap => {
         const u = snap.val() || {};
         if ((u.clicks || 0) > STATE.clicks) STATE.clicks = u.clicks;
@@ -667,6 +734,22 @@ function startGame() {
         saveToFirebase();
     }).catch(() => { if (STATE.clanId) attachClanListener(STATE.clanId); else renderClan(); });
 
+    // РЕАЛЬНОЕ ВРЕМЯ: Слушаем статус клоуна
+    db.ref('users/' + STATE.userId + '/isClown').on('value', snap => {
+        STATE.isClown = !!snap.val();
+        if (STATE.isClown) {
+            document.getElementById('header-nickname').textContent = STATE.nickname; 
+            document.getElementById('header-avatar').textContent = "🤡"; 
+            const sub = document.getElementById('header-level-badge');
+            if (sub) sub.innerHTML = `Ур. ${STATE.level} <span style="color:#ff4757; font-weight:800;">• 🤡 Водолаз</span>`;
+        } else {
+            document.getElementById('header-nickname').textContent = STATE.nickname;
+            document.getElementById('header-avatar').textContent = (STATE.nickname || 'A').charAt(0).toUpperCase();
+            const sub = document.getElementById('header-level-badge');
+            if (sub) sub.textContent = 'Ур. ' + STATE.level;
+        }
+    });
+
     drawClickButton();
     updateAndDrawParticles();
     setupClicker();
@@ -676,24 +759,34 @@ function startGame() {
     listenLeaderboard();
     listenChat();
     renderShop();
-    renderArenaLobby();
+    renderMiniGamesMenu();
     setupArenaGlobalListeners();
 
-    activatePenalty(true);          // короткий стартовый «прогрев»
-    STATE.penaltyTimer = 3;
+    checkSavedPenalty();
 
-    // Авто-шахтёр
     setInterval(() => {
-        const lvl = STATE.upgrades.auto_clicker_1 || 0;
+        const lvl = getUpLvl('auto_clicker');
         if (lvl > 0) { addClicks(lvl); updateUI(); }
     }, 1000);
 
-    // Главный цикл (энергия / штраф)
     setInterval(() => {
         if (STATE.penaltyActive) { updatePenaltyTimer(); updateUI(); return; }
         if (STATE.energy < STATE.maxEnergy) STATE.energy = Math.min(STATE.maxEnergy, STATE.energy + STATE.energyRegen / 10);
         updateUI();
     }, 100);
+
+    // Удаление просроченных покупок (24 часа)
+    setInterval(() => {
+        const now = Date.now();
+        let changed = false;
+        for (let id in STATE.upgrades) {
+            if (STATE.upgrades[id].expiresAt && now > STATE.upgrades[id].expiresAt) {
+                delete STATE.upgrades[id]; 
+                changed = true;
+            }
+        }
+        if (changed) { saveLocal(); saveToFirebase(); renderShop(); }
+    }, 10000);
 
     setInterval(updateCPS, 200);
     setInterval(() => { saveLocal(); saveToFirebase(); }, 5000);
@@ -730,7 +823,7 @@ function saveToFirebase() {
 }
 
 // ============================================================
-// НАЧИСЛЕНИЕ КЛИКОВ
+// НАЧИСЛЕНИЕ КЛИКОВ И КЛИКЕР
 // ============================================================
 function addClicks(n) {
     n = Math.max(0, Math.floor(n));
@@ -741,7 +834,6 @@ function addClicks(n) {
     recalcLevel();
 }
 
-// начисление извне (арена, клан) — без повторной раздачи 10%
 function addClicksRaw(n) {
     n = Math.max(0, Math.floor(n));
     if (!n) return;
@@ -762,9 +854,6 @@ function recalcLevel(silent) {
     }
 }
 
-// ============================================================
-// КЛИКЕР
-// ============================================================
 function setupClicker() {
     const cvs = document.getElementById('click-canvas');
     if (!cvs || cvs.dataset.bound) return;
@@ -780,16 +869,19 @@ function setupClicker() {
         STATE.energy -= STATE.energyCost;
         if (STATE.energy <= 0) activatePenalty();
 
-        let base = 1 + (STATE.upgrades.click_multiplier_1 || 0);
-
+        let base = 1 + getUpLvl('click_multiplier');
         let isCrit = false;
-        if (STATE.upgrades.crit_chance_1 && Math.random() < STATE.upgrades.crit_chance_1 * 0.03) {
-            base *= 5; isCrit = true;
+        
+        if (getUpLvl('crit_chance') && Math.random() < getUpLvl('crit_chance') * 0.03) {
+            base *= 5; 
+            isCrit = true;
             spawnFloatingEvent('⚡ КРИТ x5', '#f72585');
         }
+        
         let isLucky = false;
-        if (!isCrit && STATE.upgrades.lucky_click_1 && Math.random() < STATE.upgrades.lucky_click_1 * 0.05) {
-            base *= 2; isLucky = true;
+        if (!isCrit && getUpLvl('lucky_click') && Math.random() < getUpLvl('lucky_click') * 0.05) {
+            base *= 2; 
+            isLucky = true;
             spawnFloatingEvent('🍀 УДАЧА x2', '#ffd700');
         }
 
@@ -842,7 +934,7 @@ function updateCPS() {
 
 function updateCombo() {
     const now = Date.now();
-    const comboTime = 500 * (1 + (STATE.upgrades.combo_boost_1 || 0) * 0.15);
+    const comboTime = 500 * (1 + getUpLvl('combo_boost') * 0.15);
     if (now - STATE.lastClickTime < comboTime) {
         STATE.comboCount++;
         if (STATE.comboCount > STATE.maxCombo) {
@@ -860,16 +952,19 @@ function updateCombo() {
 }
 
 // ============================================================
-// UI
+// UI И СТРИК
 // ============================================================
 function updateUI() {
     const set = (id, v) => { const el = document.getElementById(id); if (el && el.textContent !== v) el.textContent = v; };
 
     set('clicks-display', fmt(STATE.clicks));
     set('level-display', String(STATE.level));
-    set('header-level-badge', 'Ур. ' + STATE.level);
+    if (!STATE.isClown) set('header-level-badge', 'Ур. ' + STATE.level);
     set('shop-balance', fmt(STATE.clicks));
     set('energy-text', Math.floor(STATE.energy) + ' / ' + STATE.maxEnergy);
+    
+    const upgBal = document.getElementById('upg-balance');
+    if(upgBal) upgBal.textContent = fmt(STATE.clicks);
 
     const eb = document.getElementById('energy-bar');
     if (eb) {
@@ -885,9 +980,6 @@ function updateUI() {
     if (lb) lb.style.width = (prog / STATE.clicksPerLevel * 100) + '%';
 }
 
-// ============================================================
-// СТРИК
-// ============================================================
 function checkDailyStreak() {
     const today = new Date().toISOString().split('T')[0];
     if (STATE.lastLoginDate === today) return;
@@ -904,7 +996,7 @@ function checkDailyStreak() {
 }
 
 // ============================================================
-// ONLINE
+// ONLINE И ИНБОКС
 // ============================================================
 function setupOnlineCounter() {
     if (!STATE.userId) return;
@@ -924,9 +1016,6 @@ function setupOnlineCounter() {
     });
 }
 
-// ============================================================
-// INBOX (надёжные начисления: арена, клан, возвраты)
-// ============================================================
 function listenInbox() {
     if (!STATE.userId) return;
     db.ref('inbox/' + STATE.userId).on('child_added', snap => {
@@ -940,7 +1029,7 @@ function listenInbox() {
             STATE.clanBonus += amt;
             STATE.clanToastBuf += amt;
         } else if (d.reason === 'arena_win') {
-            showToast(`👑 Победа на арене: +${fmt(amt)} кликов!`, 'success', 5000);
+            showToast(`👑 Победа в мини-игре: +${fmt(amt)} кликов!`, 'success', 5000);
             playBonusSound();
         } else if (d.reason === 'refund') {
             showToast(`↩️ Возврат ставки: +${fmt(amt)}`, 'info');
@@ -960,6 +1049,9 @@ function sendToInbox(uid, amount, reason, from) {
     }).catch(() => {});
 }
 
+// ============================================================
+// КЛАНЫ
+// ============================================================
 function flushClanToast() {
     if (STATE.clanToastBuf >= 1) {
         showToast(`🛡️ Бонус клана: +${fmt(STATE.clanToastBuf)} кликов`, 'info', 2500);
@@ -968,9 +1060,6 @@ function flushClanToast() {
     }
 }
 
-// ============================================================
-// РАЗДАЧА 10% СОКЛАНАМ
-// ============================================================
 function flushClanShare() {
     if (!STATE.clanId || !STATE.clan || !STATE.clan.members) { STATE.clanPending = 0; STATE.clanEarnWindow = 0; return; }
     const share = Math.floor(STATE.clanPending);
@@ -988,182 +1077,6 @@ function flushClanShare() {
     }
 }
 
-// ============================================================
-// ТАБЛИЦА ЛИДЕРОВ
-// ============================================================
-function listenLeaderboard() {
-    db.ref('users').orderByChild('clicks').limitToLast(25).on('value', snap => {
-        const users = [];
-        snap.forEach(c => {
-            const u = c.val();
-            if (u && u.nickname) users.push({ id: c.key, ...u });
-        });
-        users.sort((a, b) => (b.clicks || 0) - (a.clicks || 0));
-        STATE.usersCache = users.slice(0, 15);
-        renderLeaderboard();
-    });
-}
-
-function renderLeaderboard() {
-    const list = document.getElementById('leaderboard-list');
-    if (!list) return;
-    const top = STATE.usersCache;
-    const badge = document.getElementById('lb-count');
-    if (badge) badge.textContent = top.length;
-
-    if (!top.length) { list.innerHTML = '<div class="lb-empty">Пока никого нет.<br>Будьте первым! 🚀</div>'; return; }
-
-    list.innerHTML = '';
-    top.forEach((u, i) => {
-        const rank = i + 1;
-        const isMe = u.id === STATE.userId;
-        const online = !!STATE.onlineUsers[u.id];
-        const rc = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
-        const nick = u.nickname || 'Аноним';
-        const item = document.createElement('div');
-        item.className = 'lb-item' + (isMe ? ' is-me' : '');
-        item.innerHTML = `
-            <div class="lb-rank ${rc}">${rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : rank}</div>
-            <div class="lb-avatar">${escapeHtml(nick.charAt(0).toUpperCase())}<span class="dot ${online ? 'online' : 'offline'}"></span></div>
-            <div class="lb-info">
-                <div class="lb-name">${u.clanTag ? `<span class="lb-clan">${escapeHtml(u.clanTag)}</span>` : ''}${escapeHtml(nick)}</div>
-                <div class="lb-clicks">${fmt(u.clicks)} кликов</div>
-            </div>
-            <div class="lb-level-badge">Ур. ${u.level || 1}</div>`;
-        item.onclick = () => openPlayerModal(u.id);
-        list.appendChild(item);
-    });
-}
-
-// ============================================================
-// ОБЩИЙ ЧАТ
-// ============================================================
-function listenChat() {
-    if (STATE.chatInitialized) return;
-    STATE.chatInitialized = true;
-
-    db.ref('chat').limitToLast(50).on('child_added', snap => {
-        const m = snap.val();
-        if (!m || !m.text) return;
-        const container = document.getElementById('chat-messages');
-        if (!container) return;
-        const isMe = m.userId === STATE.userId;
-
-        const el = document.createElement('div');
-        el.className = 'chat-msg' + (isMe ? ' my-msg' : '');
-        const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
-
-        let nameStyle = '';
-        if (m.chatColor) {
-            let hash = 0; const s = m.nickname || '';
-            for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
-            nameStyle = ` style="color:hsl(${Math.abs(hash) % 360},80%,65%)"`;
-        }
-        const badge = m.vipBadge ? '⭐ ' : '';
-        const clan = m.clanTag ? `<span class="lb-clan">${escapeHtml(m.clanTag)}</span> ` : '';
-
-        el.innerHTML = `
-            <div class="chat-msg-header">
-                <span class="chat-msg-name"${nameStyle} data-uid="${escapeHtml(m.userId || '')}">${clan}${badge}${escapeHtml(m.nickname || 'Аноним')}</span>
-                <span class="chat-msg-level">Ур.${m.level || 1}</span>
-                <span class="chat-msg-time">${time}</span>
-            </div>
-            <div class="chat-msg-text">${escapeHtml(censorText(String(m.text).substring(0, 200)))}</div>`;
-
-        const nameEl = el.querySelector('.chat-msg-name');
-        if (nameEl && m.userId) nameEl.onclick = () => openPlayerModal(m.userId);
-
-        container.appendChild(el);
-        while (container.children.length > 80) container.removeChild(container.firstChild);
-
-        const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
-        if (atBottom || isMe) container.scrollTop = container.scrollHeight;
-
-        if (!isMe && STATE.currentTab !== 'chat') {
-            STATE.unseenMessages++;
-            const b = document.getElementById('chat-badge');
-            if (b) { b.style.display = 'flex'; b.textContent = STATE.unseenMessages > 9 ? '9+' : STATE.unseenMessages; }
-        }
-    });
-}
-
-function sendChat() {
-    const input = document.getElementById('chat-input');
-    const text = input.value.trim();
-    if (!text) return;
-    if (text.length > 200) { showToast('Сообщение слишком длинное (макс. 200)', 'warning'); return; }
-    if (containsBadWords(text)) { showToast('🚫 Сообщение содержит запрещённые слова', 'danger'); input.value = ''; return; }
-
-    const now = Date.now();
-    if (!sendChat._last) sendChat._last = 0;
-    if (now - sendChat._last < 1500) { showToast('⏳ Подождите перед следующим сообщением', 'warning'); return; }
-    sendChat._last = now;
-
-    db.ref('chat').push({
-        nickname: STATE.nickname,
-        userId: STATE.userId,
-        text: text,
-        level: STATE.level,
-        clanTag: STATE.clan ? STATE.clan.tag : null,
-        timestamp: firebase.database.ServerValue.TIMESTAMP,
-        chatColor: (STATE.upgrades.chat_color_1 || 0) > 0,
-        vipBadge: (STATE.upgrades.chat_badge_1 || 0) > 0
-    });
-    input.value = '';
-}
-
-// ============================================================
-// МАГАЗИН
-// ============================================================
-function renderShop() {
-    const c = document.getElementById('shop-items');
-    if (!c) return;
-    c.innerHTML = '';
-    UPGRADES.forEach(item => {
-        const lvl = STATE.upgrades[item.id] || 0;
-        const max = lvl >= item.maxLevel;
-        const cost = Math.floor(item.baseCost * Math.pow(1.5, lvl));
-        const can = STATE.clicks >= cost;
-        const div = document.createElement('div');
-        div.className = 'shop-item' + (max ? ' max-level' : '');
-        div.innerHTML = `
-            <div class="shop-item-header">
-                <div class="shop-item-icon">${item.icon}</div>
-                <div class="shop-item-info">
-                    <div class="shop-item-name">${item.name}</div>
-                    <div class="shop-item-level">Уровень: ${lvl} / ${item.maxLevel}</div>
-                </div>
-            </div>
-            <div class="shop-item-desc">${item.desc}</div>
-            <div class="shop-item-footer">
-                ${max ? '<div class="shop-item-max">⭐ МАКСИМУМ</div>'
-                      : `<div class="shop-item-price">💎 ${fmt(cost)}</div>
-                         <button class="shop-item-buy" ${can ? '' : 'disabled'} data-id="${item.id}">${can ? 'Купить' : 'Мало 💎'}</button>`}
-            </div>`;
-        const btn = div.querySelector('.shop-item-buy');
-        if (btn) btn.onclick = () => buyUpgrade(item.id);
-        c.appendChild(div);
-    });
-}
-
-function buyUpgrade(id) {
-    const up = UPGRADES.find(u => u.id === id);
-    if (!up) return;
-    const lvl = STATE.upgrades[id] || 0;
-    if (lvl >= up.maxLevel) { showToast('⚠️ Достигнут максимум', 'warning'); return; }
-    const cost = Math.floor(up.baseCost * Math.pow(1.5, lvl));
-    if (STATE.clicks < cost) { showToast('❌ Недостаточно кликов', 'danger'); return; }
-
-    STATE.clicks -= cost;
-    STATE.upgrades[id] = lvl + 1;
-    saveLocal(); saveToFirebase(); updateUI(); renderShop();
-    showToast(`✅ Куплено: ${up.name} (Ур. ${STATE.upgrades[id]})`, 'success');
-    playBonusSound();
-}
-
-// ============================================================
-// ============================  КЛАНЫ  ========================
-// ============================================================
 let CLAN_REF = null, CLAN_CB = null;
 
 function attachClanListener(clanId) {
@@ -1173,21 +1086,12 @@ function attachClanListener(clanId) {
     CLAN_REF = db.ref('clans/' + clanId);
     CLAN_CB = CLAN_REF.on('value', snap => {
         const c = snap.val();
-        if (!c) {
+        if (!c || !c.members || !c.members[STATE.userId]) {
             STATE.clan = null; STATE.clanId = null;
             localStorage.removeItem('cv_clan');
             db.ref('users/' + STATE.userId).update({ clanId: null, clanTag: null });
             detachClanListener();
-            showToast('🛡️ Клан был распущен', 'warning');
-            renderClan(); updateClanHeader();
-            return;
-        }
-        if (!c.members || !c.members[STATE.userId]) {
-            STATE.clan = null; STATE.clanId = null;
-            localStorage.removeItem('cv_clan');
-            db.ref('users/' + STATE.userId).update({ clanId: null, clanTag: null });
-            detachClanListener();
-            showToast('🚪 Вы больше не состоите в клане', 'warning');
+            showToast(c ? '🚪 Вы больше не состоите в клане' : '🛡️ Клан был распущен', 'warning');
             renderClan(); updateClanHeader();
             return;
         }
@@ -1212,7 +1116,7 @@ function updateClanHeader() {
         if (STATE.clan) {
             const n = Object.keys(STATE.clan.members || {}).length;
             mini.classList.add('visible');
-            miniTxt.textContent = `${STATE.clan.name} • ${n}/${CLAN_MAX} • +${CLAN_MAX > 1 ? 10 : 0}% сокланам`;
+            miniTxt.textContent = `${STATE.clan.name} • ${n}/${CLAN_MAX} • +${CLAN_MAX > 1 ? 10 : 0}%`;
         } else mini.classList.remove('visible');
     }
     const cnt = document.getElementById('clan-members-count');
@@ -1278,7 +1182,6 @@ function createClan() {
     err.textContent = '⏳ Проверка тега...';
     db.ref('clans').orderByChild('tag').equalTo(tag).once('value').then(s => {
         if (s.exists()) { err.textContent = '⚠️ Такой тег уже занят'; return; }
-
         STATE.clicks -= CLAN_COST;
         saveLocal(); updateUI();
 
@@ -1317,12 +1220,8 @@ function invitePlayer(uid, nick, btnEl) {
     if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Отправка...'; }
 
     db.ref(`invites/${uid}/${STATE.clanId}`).set({
-        clanId: STATE.clanId,
-        clanName: STATE.clan.name,
-        clanTag: STATE.clan.tag,
-        fromNick: STATE.nickname,
-        fromId: STATE.userId,
-        ts: firebase.database.ServerValue.TIMESTAMP
+        clanId: STATE.clanId, clanName: STATE.clan.name, clanTag: STATE.clan.tag,
+        fromNick: STATE.nickname, fromId: STATE.userId, ts: firebase.database.ServerValue.TIMESTAMP
     }).then(() => {
         if (btnEl) btnEl.textContent = '✅ Приглашение отправлено';
         showToast(`📨 Приглашение отправлено игроку ${escapeHtml(nick)}`, 'success');
@@ -1399,11 +1298,9 @@ function kickMember(uid, nick) {
 
 function disbandClan() {
     if (!STATE.clan || STATE.clan.leaderId !== STATE.userId) return;
-    askConfirm('💥', 'Распустить клан?', 'Клан будет удалён навсегда, все участники его покинут.', () => {
+    askConfirm('💥', 'Распустить клан?', 'Клан будет удалён навсегда.', () => {
         const id = STATE.clanId;
-        Object.keys(STATE.clan.members || {}).forEach(uid => {
-            db.ref('users/' + uid).update({ clanId: null, clanTag: null });
-        });
+        Object.keys(STATE.clan.members || {}).forEach(uid => { db.ref('users/' + uid).update({ clanId: null, clanTag: null }); });
         db.ref('clans/' + id).remove();
         STATE.clanId = null; STATE.clan = null;
         localStorage.removeItem('cv_clan');
@@ -1420,7 +1317,6 @@ function renderClan() {
     if (!c) return;
     updateClanHeader();
 
-    // --- нет клана ---
     if (!STATE.clan) {
         const invites = Object.entries(STATE.clanInvites || {});
         let inviteHtml = '';
@@ -1455,8 +1351,6 @@ function renderClan() {
                 <b>Как это работает:</b><br>
                 • В клане до <b>${CLAN_MAX}</b> игроков.<br>
                 • Каждый клик участника приносит <b>+10%</b> от его награды <b>каждому</b> соклану.<br>
-                • Чтобы позвать игрока — нажмите на него в таблице лидеров или в чате.<br>
-                • Бонусы приходят автоматически, даже если вы были офлайн.
             </div>`;
 
         const cb = document.getElementById('btn-create-clan');
@@ -1468,16 +1362,13 @@ function renderClan() {
         };
         const fb = document.getElementById('btn-find-players');
         if (fb) fb.onclick = () => switchTab('leaderboard');
-
         c.querySelectorAll('[data-accept]').forEach(b => b.onclick = () => acceptInvite(b.dataset.accept));
         c.querySelectorAll('[data-decline]').forEach(b => b.onclick = () => declineInvite(b.dataset.decline));
         return;
     }
 
-    // --- есть клан ---
     const clan = STATE.clan;
-    const members = Object.entries(clan.members || {})
-        .sort((a, b) => (b[1].contributed || 0) - (a[1].contributed || 0));
+    const members = Object.entries(clan.members || {}).sort((a, b) => (b[1].contributed || 0) - (a[1].contributed || 0));
     const isLeader = clan.leaderId === STATE.userId;
     const my = clan.members[STATE.userId] || {};
 
@@ -1520,10 +1411,6 @@ function renderClan() {
             ${free > 0 ? `<button class="clan-big-btn" id="btn-invite-more">➕ Пригласить игрока</button>` : ''}
             <button class="clan-big-btn danger" id="btn-leave-clan">🚪 Покинуть клан</button>
             ${isLeader ? `<button class="clan-big-btn ghost" id="btn-disband-clan">💥 Распустить клан</button>` : ''}
-        </div>
-        <div class="clan-info-box">
-            Каждый ваш клик приносит <b>+10%</b> каждому соклану, а их клики — <b>вам</b>.
-            Начисления приходят пачками раз в несколько секунд.
         </div>`;
 
     c.querySelectorAll('[data-kick]').forEach(b => b.onclick = () => kickMember(b.dataset.kick, b.dataset.nick));
@@ -1536,7 +1423,384 @@ function renderClan() {
 }
 
 // ============================================================
-// ============================  АРЕНА  ========================
+// ЛИДЕРБОРД
+// ============================================================
+function listenLeaderboard() {
+    db.ref('users').orderByChild('clicks').limitToLast(25).on('value', snap => {
+        const users = [];
+        snap.forEach(c => {
+            const u = c.val();
+            if (u && u.nickname) users.push({ id: c.key, ...u });
+        });
+        users.sort((a, b) => (b.clicks || 0) - (a.clicks || 0));
+        STATE.usersCache = users.slice(0, 15);
+        renderLeaderboard();
+    });
+}
+
+function renderLeaderboard() {
+    const list = document.getElementById('leaderboard-list');
+    if (!list) return;
+    const top = STATE.usersCache;
+    const badge = document.getElementById('lb-count');
+    if (badge) badge.textContent = top.length;
+
+    if (!top.length) { list.innerHTML = '<div class="lb-empty">Пока никого нет.<br>Будьте первым! 🚀</div>'; return; }
+
+    list.innerHTML = '';
+    top.forEach((u, i) => {
+        const rank = i + 1;
+        const isMe = u.id === STATE.userId;
+        const online = !!STATE.onlineUsers[u.id];
+        const rc = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+        
+        const isClown = u.isClown === true;
+        const avatarSymbol = isClown ? '🤡' : escapeHtml((u.nickname || 'A').charAt(0).toUpperCase());
+        const clownSubStatus = isClown ? `<div style="font-size:10px; color:#ff4757; font-weight:800; line-height:1.1;">🤡 Опущенный водолаз</div>` : '';
+
+        const item = document.createElement('div');
+        item.className = 'lb-item' + (isMe ? ' is-me' : '');
+        item.innerHTML = `
+            <div class="lb-rank ${rc}">${rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : rank}</div>
+            <div class="lb-avatar">${avatarSymbol}<span class="dot ${online ? 'online' : 'offline'}"></span></div>
+            <div class="lb-info">
+                <div class="lb-name">${u.clanTag ? `<span class="lb-clan">${escapeHtml(u.clanTag)}</span>` : ''}${escapeHtml(u.nickname || 'Аноним')}</div>
+                ${clownSubStatus}
+                <div class="lb-clicks">${fmt(u.clicks)} кликов</div>
+            </div>
+            <div class="lb-level-badge">Ур. ${u.level || 1}</div>`;
+        item.onclick = () => openPlayerModal(u.id);
+        list.appendChild(item);
+    });
+}
+
+// ============================================================
+// ОБЩИЙ ЧАТ
+// ============================================================
+function listenChat() {
+    if (STATE.chatInitialized) return;
+    STATE.chatInitialized = true;
+
+    db.ref('chat').limitToLast(50).on('child_added', snap => {
+        const m = snap.val();
+        if (!m || !m.text) return;
+        const container = document.getElementById('chat-messages');
+        if (!container) return;
+        const isMe = m.userId === STATE.userId;
+
+        const isClown = m.isClown === true;
+
+        let nameStyle = '';
+        if (!isClown) {
+            if (m.colorNeon) nameStyle = ' style="color:var(--accent-tertiary); text-shadow: 0 0 5px var(--accent-tertiary);"';
+            else if (m.colorGold) nameStyle = ' style="color:var(--accent-gold); text-shadow: 0 0 5px var(--accent-gold);"';
+        }
+
+        const clan = m.clanTag ? `<span class="lb-clan">${escapeHtml(m.clanTag)}</span> ` : '';
+        const prefixHtml = (m.prefix && !isClown) ? `<span style="color:var(--accent-light); font-weight:900;">${m.prefix}</span> ` : '';
+        const iconHtml = (m.icon && !isClown) ? m.icon : '';
+
+        const clownSubStatus = isClown 
+            ? `<div style="font-size:10px; color:#ff4757; font-weight:800; margin-top:1px;">🤡 Опущенный водолаз</div>` 
+            : '';
+
+        const displayName = `<span class="chat-msg-name"${nameStyle}>${prefixHtml}${iconHtml}${escapeHtml(m.nickname || 'Аноним')}</span>${clownSubStatus}`;
+
+        const el = document.createElement('div');
+        el.className = 'chat-msg' + (isMe ? ' my-msg' : '');
+        const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+
+        el.innerHTML = `
+            <div class="chat-msg-header">
+                <div style="cursor:pointer;" data-uid="${escapeHtml(m.userId || '')}">${clan}${displayName}</div>
+                <span class="chat-msg-level">Ур.${m.level || 1}</span>
+                <span class="chat-msg-time">${time}</span>
+            </div>
+            <div class="chat-msg-text">${escapeHtml(censorText(String(m.text).substring(0, 200)))}</div>`;
+
+        const nameEl = el.querySelector('[data-uid]');
+        if (nameEl && m.userId) nameEl.onclick = () => openPlayerModal(m.userId);
+
+        container.appendChild(el);
+        while (container.children.length > 80) container.removeChild(container.firstChild);
+
+        const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+        if (atBottom || isMe) container.scrollTop = container.scrollHeight;
+
+        if (!isMe && STATE.currentTab !== 'chat') {
+            STATE.unseenMessages++;
+            const b = document.getElementById('chat-badge');
+            if (b) { b.style.display = 'flex'; b.textContent = STATE.unseenMessages > 9 ? '9+' : STATE.unseenMessages; }
+        }
+    });
+}
+
+function sendChat() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    if (text.length > 200) { showToast('Сообщение слишком длинное', 'warning'); return; }
+    if (containsBadWords(text)) { showToast('🚫 Запрещённые слова', 'danger'); input.value = ''; return; }
+
+    const now = Date.now();
+    if (!sendChat._last) sendChat._last = 0;
+    if (now - sendChat._last < 1500) { showToast('⏳ Подождите...', 'warning'); return; }
+    sendChat._last = now;
+
+    const msgData = {
+        nickname: STATE.nickname,
+        userId: STATE.userId,
+        text: text,
+        level: STATE.level,
+        clanTag: STATE.clan ? STATE.clan.tag : null,
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        colorGold: getUpLvl('color_gold') > 0,
+        colorNeon: getUpLvl('color_neon') > 0,
+        icon: getUpLvl('icon_dragon') ? '🐉 ' : getUpLvl('icon_crown') ? '👑 ' : getUpLvl('icon_diamond') ? '💎 ' : getUpLvl('icon_star') ? '⭐ ' : '',
+        prefix: getUpLvl('prefix_god') ? '[GOD]' : getUpLvl('prefix_boss') ? '[BOSS]' : getUpLvl('prefix_legend') ? '[LEGEND]' : getUpLvl('prefix_pro') ? '[PRO]' : getUpLvl('prefix_vip') ? '[VIP]' : '',
+        isClown: STATE.isClown || false 
+    };
+
+    db.ref('chat').push(msgData);
+    input.value = '';
+}
+
+// ============================================================
+// МАГАЗИН (С ТАЙМЕРОМ НА 24 ЧАСА)
+// ============================================================
+function renderShop() {
+    const c = document.getElementById('shop-items');
+    if (!c) return;
+    c.innerHTML = '';
+    
+    UPGRADES.forEach(item => {
+        const u = STATE.upgrades[item.id] || { level: 0, expiresAt: 0 };
+        const isActive = u.expiresAt > Date.now();
+        const lvl = isActive ? u.level : 0;
+        const max = lvl >= item.maxLevel;
+        const cost = Math.floor(item.baseCost * Math.pow(1.5, lvl));
+        const can = STATE.clicks >= cost;
+        
+        let timerHtml = '';
+        if (isActive) {
+            const left = Math.floor((u.expiresAt - Date.now()) / 3600000);
+            const leftMin = Math.floor(((u.expiresAt - Date.now()) % 3600000) / 60000);
+            timerHtml = `<span style="color:#06d6a0; font-size:11px; font-weight:800;">⏱️ ${left}ч ${leftMin}м</span>`;
+        }
+
+        const div = document.createElement('div');
+        div.className = 'shop-item' + (max ? ' max-level' : '');
+        div.innerHTML = `
+            <div class="shop-item-header">
+                <div class="shop-item-icon">${item.icon}</div>
+                <div class="shop-item-info">
+                    <div class="shop-item-name">${item.name} ${timerHtml}</div>
+                    <div class="shop-item-level">Уровень: ${lvl} / ${item.maxLevel}</div>
+                </div>
+            </div>
+            <div class="shop-item-desc">${item.desc}</div>
+            <div class="shop-item-footer">
+                ${max ? '<div class="shop-item-max">⭐ МАКСИМУМ (24ч)</div>'
+                      : `<div class="shop-item-price">💎 ${fmt(cost)}</div>
+                         <button class="shop-item-buy" ${can ? '' : 'disabled'} data-id="${item.id}">${can ? (isActive ? 'Продлить' : 'Купить') : 'Мало 💎'}</button>`}
+            </div>`;
+        const btn = div.querySelector('.shop-item-buy');
+        if (btn) btn.onclick = () => buyUpgrade(item.id);
+        c.appendChild(div);
+    });
+}
+
+function buyUpgrade(id) {
+    const up = UPGRADES.find(u => u.id === id);
+    if (!up) return;
+    
+    if (typeof STATE.upgrades[id] === 'number') {
+        STATE.upgrades[id] = { level: STATE.upgrades[id], expiresAt: 0 };
+    }
+
+    const current = STATE.upgrades[id] || { level: 0, expiresAt: 0 };
+    const lvl = current.level;
+    
+    if (lvl >= up.maxLevel && current.expiresAt > Date.now()) { 
+        showToast('⚠️ Максимальный уровень уже активен', 'warning'); return; 
+    }
+    
+    const actualLvl = current.expiresAt > Date.now() ? lvl : 0;
+    const cost = Math.floor(up.baseCost * Math.pow(1.5, actualLvl));
+    
+    if (STATE.clicks < cost) { showToast('❌ Недостаточно кликов', 'danger'); return; }
+
+    STATE.clicks -= cost;
+    STATE.upgrades[id] = {
+        level: actualLvl + 1,
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000)
+    };
+    
+    saveLocal(); saveToFirebase(); updateUI(); renderShop();
+    showToast(`✅ Куплено на 24 часа: ${up.name}`, 'success');
+    playBonusSound();
+}
+
+// ============================================================
+// МИНИ-ИГРЫ И АПГРЕЙДЕР (КРУГОВАЯ РУЛЕТКА)
+// ============================================================
+let upgCurrentRotation = 0;
+
+function renderMiniGamesMenu() {
+    detachRoomListeners();
+    detachRoomsListener();
+    
+    const content = document.getElementById('arena-content');
+    if (!content) return;
+    
+    const title = document.querySelector('#tab-arena .panel-header span:nth-child(2)');
+    if (title) title.textContent = 'Мини-игры';
+    const icon = document.querySelector('#tab-arena .panel-header-icon');
+    if (icon) icon.textContent = '🎲';
+    const count = document.getElementById('arena-count');
+    if (count) count.style.display = 'none';
+
+    content.innerHTML = `
+        <div class="mg-grid">
+            <div class="mg-card" onclick="renderUpgrader()">
+                <div class="mg-icon">🎰</div>
+                <div class="mg-title">Апгрейдер</div>
+                <div class="mg-desc">Умножай свои клики! Шанс выигрыша зависит от размера ставки. (Соло)</div>
+            </div>
+            <div class="mg-card" onclick="renderArenaLobby()">
+                <div class="mg-icon">⚔️</div>
+                <div class="mg-title">Мультиплеерные бои</div>
+                <div class="mg-desc">Играй с другими игроками в режимах «Удержание» и «Чувство времени» на ставку!</div>
+            </div>
+        </div>
+    `;
+}
+
+function renderUpgrader() {
+    const content = document.getElementById('arena-content');
+    content.innerHTML = `
+        <div class="arena-top-bar" style="padding:12px 12px 0; margin:0;">
+            <button class="arena-btn" onclick="renderMiniGamesMenu()">← В меню игр</button>
+        </div>
+        <div class="upg-container">
+            <div class="shop-balance">
+                <div class="shop-balance-label">💰 Баланс кликов</div>
+                <div class="shop-balance-value" id="upg-balance">${fmt(STATE.clicks)}</div>
+            </div>
+            
+            <div class="upg-row">
+                <div class="upg-box">
+                    <div class="upg-label">Ставите</div>
+                    <input type="number" id="upg-bet" class="upg-input" value="1000" min="10">
+                </div>
+                <div class="upg-box">
+                    <div class="upg-label">Хотите получить</div>
+                    <input type="number" id="upg-target" class="upg-input" value="2000" min="20">
+                </div>
+            </div>
+            
+            <div class="upg-circle-wrap">
+                <svg class="upg-svg" viewBox="0 0 100 100">
+                    <circle class="upg-bg-ring" cx="50" cy="50" r="44"></circle>
+                    <circle class="upg-win-ring" id="upg-win-ring" cx="50" cy="50" r="44" stroke-dasharray="276.46" stroke-dashoffset="276.46"></circle>
+                </svg>
+                
+                <div class="upg-pointer-box" id="upg-pointer" style="transform: rotate(${upgCurrentRotation}deg);">
+                    <svg viewBox="0 0 24 30" width="20" height="26" style="position:absolute; top:-8px; left:50%; margin-left:-10px; filter: drop-shadow(0 0 8px #fff);">
+                        <polygon points="0,0 24,0 12,30" fill="#fff" />
+                        <polygon points="4,2 20,2 12,26" fill="#ffd700" />
+                    </svg>
+                </div>
+                
+                <div class="upg-center-text">
+                    <div class="upg-chance-val" id="upg-chance-text">50.00%</div>
+                    <div class="upg-chance-lbl">Шанс успеха</div>
+                </div>
+            </div>
+            
+            <button class="clan-big-btn" id="upg-btn" style="margin-top:5px;" onclick="playUpgrader()">Апгрейд!</button>
+            <div id="upg-result" style="text-align:center; font-size:16px; font-weight:800; min-height:20px;"></div>
+        </div>
+    `;
+
+    const betInp = document.getElementById('upg-bet');
+    const tarInp = document.getElementById('upg-target');
+    
+    const updateChance = () => {
+        let bet = parseInt(betInp.value) || 0;
+        let tar = parseInt(tarInp.value) || 0;
+        let btn = document.getElementById('upg-btn');
+        let ring = document.getElementById('upg-win-ring');
+        
+        if (bet <= 0 || tar <= bet) {
+            document.getElementById('upg-chance-text').textContent = 'Ошибка';
+            ring.style.strokeDashoffset = 276.46; 
+            btn.disabled = true;
+            return;
+        }
+        
+        let chance = (bet / tar) * 100;
+        if (chance > 90) chance = 90; 
+        
+        document.getElementById('upg-chance-text').textContent = chance.toFixed(2) + '%';
+        const circumference = 276.46;
+        const offset = circumference - (chance / 100) * circumference;
+        ring.style.strokeDashoffset = offset;
+        ring.style.stroke = chance > 50 ? 'var(--success)' : chance > 25 ? 'var(--warning)' : 'var(--danger)';
+        btn.disabled = false;
+    };
+    
+    betInp.addEventListener('input', updateChance);
+    tarInp.addEventListener('input', updateChance);
+    updateChance();
+}
+
+function playUpgrader() {
+    let bet = parseInt(document.getElementById('upg-bet').value);
+    let tar = parseInt(document.getElementById('upg-target').value);
+    
+    if (STATE.clicks < bet) { showToast('❌ Недостаточно кликов', 'danger'); return; }
+    if (bet >= tar) return;
+    
+    let chance = (bet / tar) * 100;
+    if (chance > 90) chance = 90;
+    
+    STATE.clicks -= bet;
+    saveLocal(); updateUI();
+    document.getElementById('upg-balance').textContent = fmt(STATE.clicks);
+    
+    const btn = document.getElementById('upg-btn');
+    const resEl = document.getElementById('upg-result');
+    btn.disabled = true;
+    btn.textContent = 'Крутим...';
+    resEl.textContent = '';
+    
+    const roll = Math.random() * 100; 
+    const rollDegrees = roll * 3.6;   
+    const pointer = document.getElementById('upg-pointer');
+    
+    upgCurrentRotation += (360 - (upgCurrentRotation % 360)) + 1800 + rollDegrees;
+    pointer.style.transform = `rotate(${upgCurrentRotation}deg)`;
+    
+    setTimeout(() => {
+        if (roll <= chance) {
+            STATE.clicks += tar;
+            saveLocal(); updateUI();
+            resEl.innerHTML = `🎉 УСПЕХ! <span style="color:var(--success)">+${fmt(tar)} 💎</span>`;
+            playBonusSound();
+        } else {
+            resEl.innerHTML = `💀 ПРОМАХ! <span style="color:var(--danger)">Сгорело ${fmt(bet)} 💎</span>`;
+            playPenaltySound();
+        }
+        
+        document.getElementById('upg-balance').textContent = fmt(STATE.clicks);
+        btn.disabled = false;
+        btn.textContent = 'Апгрейд!';
+    }, 3600);
+}
+
+// ============================================================
+// АРЕНА (МУЛЬТИПЛЕЕР)
 // ============================================================
 const ARENA = {
     roomsRef: null, roomsCb: null,
@@ -1547,12 +1811,8 @@ const ARENA = {
     lastChatSend: 0
 };
 
-function setBet(v) {
-    const el = document.getElementById('room-bet-input');
-    if (el) el.value = v;
-}
+function setBet(v) { const el = document.getElementById('room-bet-input'); if (el) el.value = v; }
 
-// ---------- ЛОББИ ----------
 function renderArenaLobby() {
     detachRoomListeners();
     STATE.currentRoomId = null;
@@ -1564,11 +1824,14 @@ function renderArenaLobby() {
     const content = document.getElementById('arena-content');
     if (!content) return;
 
+    const count = document.getElementById('arena-count');
+    if (count) count.style.display = 'inline-block';
+
     content.innerHTML = `
         <div class="arena-scroll">
             <div class="arena-top-bar">
+                <button class="arena-btn" onclick="renderMiniGamesMenu()">← Меню</button>
                 <button class="arena-btn primary" id="btn-open-create-room">➕ Создать</button>
-                <button class="arena-btn" id="btn-refresh-rooms">🔄 Обновить</button>
             </div>
             <div class="arena-rooms-list" id="arena-rooms-list">
                 <div class="arena-empty">Загрузка комнат...</div>
@@ -1583,7 +1846,6 @@ function renderArenaLobby() {
         document.getElementById('create-room-btn').disabled = false;
         openModal('create-room-modal');
     };
-    document.getElementById('btn-refresh-rooms').onclick = () => { renderArenaLobby(); showToast('🔄 Список обновлён', 'info', 1200); };
 
     attachRoomsListener();
 }
@@ -1614,11 +1876,13 @@ function attachRoomsListener() {
             const count = room.players ? Object.keys(room.players).length : 0;
             const full = count >= (room.maxPlayers || 2);
             const playing = room.state !== 'waiting';
+            const rType = room.roomType === 'time' ? '⏱ Время' : '🔥 Удержание';
+            
             const card = document.createElement('div');
             card.className = 'arena-room-card';
             card.innerHTML = `
                 <div class="arena-room-info">
-                    <div class="arena-room-name">${escapeHtml(room.name || 'Комната')}</div>
+                    <div class="arena-room-name">${escapeHtml(room.name || 'Комната')} [${rType}]</div>
                     <div class="arena-room-meta">
                         <span>👥 ${count}/${room.maxPlayers || 2}</span>
                         <span>💎 ${fmt(room.bet)}</span>
@@ -1639,15 +1903,16 @@ function detachRoomsListener() {
     ARENA.roomsRef = null; ARENA.roomsCb = null;
 }
 
-// ---------- СОЗДАНИЕ / ВХОД ----------
 function createRoom() {
     const err = document.getElementById('create-room-error');
     const btn = document.getElementById('create-room-btn');
     err.textContent = '';
 
-    const name = document.getElementById('room-name-input').value.trim() || ('Арена ' + STATE.nickname);
+    const name = document.getElementById('room-name-input').value.trim() || ('Игра ' + STATE.nickname);
     const bet = parseInt(document.getElementById('room-bet-input').value, 10);
     const maxP = parseInt(document.getElementById('room-max-input').value, 10);
+    const typeSelect = document.getElementById('room-type-input');
+    const roomType = typeSelect ? typeSelect.value : 'hold';
 
     if (name.length > 20) { err.textContent = '⚠️ Название: макс. 20 символов'; return; }
     if (containsBadWords(name)) { err.textContent = '🚫 Недопустимое название'; return; }
@@ -1660,12 +1925,16 @@ function createRoom() {
     btn.disabled = true;
     err.textContent = '⏳ Создание...';
 
-    STATE.clicks -= bet;                       // списываем ОДИН раз
+    STATE.clicks -= bet;
     saveLocal(); saveToFirebase(); updateUI();
 
     const ref = db.ref('rooms').push();
     ref.set({
-        name, bet, maxPlayers: maxP,
+        name: name,
+        bet: bet,
+        maxPlayers: maxP,
+        roomType: roomType,
+        targetTime: roomType === 'time' ? (Math.floor(Math.random() * 8) + 5) : 0,
         creatorId: STATE.userId,
         state: 'waiting',
         createdAt: firebase.database.ServerValue.TIMESTAMP,
@@ -1676,7 +1945,7 @@ function createRoom() {
     }).then(() => {
         closeModal('create-room-modal');
         btn.disabled = false;
-        showToast('✅ Комната создана! Ждём соперников', 'success');
+        showToast('✅ Игра создана! Ждём соперников', 'success');
         enterRoom(ref.key, bet);
     }).catch(() => {
         STATE.clicks += bet; saveLocal(); updateUI();
@@ -1696,7 +1965,7 @@ function joinRoom(roomId) {
         if (count >= (room.maxPlayers || 2)) { showToast('❌ Комната заполнена', 'danger'); return; }
         if (STATE.clicks < room.bet) { showToast(`❌ Нужно ${fmt(room.bet)} кликов`, 'danger'); return; }
 
-        STATE.clicks -= room.bet;              // списываем ОДИН раз
+        STATE.clicks -= room.bet;
         saveLocal(); saveToFirebase(); updateUI();
 
         db.ref(`rooms/${roomId}/players/${STATE.userId}`).set({
@@ -1713,7 +1982,6 @@ function joinRoom(roomId) {
     }).catch(() => showToast('❌ Ошибка сети', 'danger'));
 }
 
-// ---------- ВНУТРИ КОМНАТЫ ----------
 function enterRoom(roomId, bet) {
     detachRoomsListener();
     STATE.currentRoomId = roomId;
@@ -1737,14 +2005,12 @@ function enterRoom(roomId, bet) {
     });
 }
 
-// Страховка от вылета: пока идёт ожидание — вернём ставку и уберём игрока
 function armDisconnectSafety(bet) {
     disarmDisconnectSafety();
     if (!STATE.currentRoomId) return;
     ARENA.refundRef = db.ref('inbox/' + STATE.userId).push();
     ARENA.refundRef.onDisconnect().set({
-        amount: bet, reason: 'refund', from: 'arena',
-        ts: firebase.database.ServerValue.TIMESTAMP
+        amount: bet, reason: 'refund', from: 'arena', ts: firebase.database.ServerValue.TIMESTAMP
     });
     db.ref(`rooms/${STATE.currentRoomId}/players/${STATE.userId}`).onDisconnect().remove();
 }
@@ -1757,7 +2023,6 @@ function disarmDisconnectSafety() {
     }
 }
 
-// Когда игра стартовала — возврат отменяем, при вылете игрок «отпускает»
 function switchDisconnectToLost() {
     if (ARENA.refundRef) {
         ARENA.refundRef.onDisconnect().cancel();
@@ -1809,12 +2074,9 @@ function buildRoomShell() {
             </div>
         </div>`;
     STATE.roomShellBuilt = true;
-
     document.getElementById('room-leave-btn').onclick = leaveRoom;
     document.getElementById('room-chat-send').onclick = sendRoomChat;
-    document.getElementById('room-chat-input').addEventListener('keydown', e => {
-        if (e.key === 'Enter') sendRoomChat();
-    });
+    document.getElementById('room-chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendRoomChat(); });
     renderRoomChat();
 }
 
@@ -1822,29 +2084,24 @@ function onRoomValue(snap) {
     const room = snap.val();
     if (!room) {
         showToast('🚪 Комната закрыта', 'info');
-        detachRoomListeners();
-        renderArenaLobby();
-        return;
+        detachRoomListeners(); renderArenaLobby(); return;
     }
     STATE.roomData = room;
     const players = room.players || {};
 
     if (!players[STATE.userId] && room.state !== 'finished') {
-        detachRoomListeners();
-        renderArenaLobby();
-        return;
+        detachRoomListeners(); renderArenaLobby(); return;
     }
 
     if (room.state === 'countdown' || room.state === 'playing') switchDisconnectToLost();
 
-    // Автопереход countdown → playing (страховка на всех клиентах)
     if (room.state === 'countdown' && nowTs() >= (room.countdownEnd || 0)) {
         const iAmHost = room.creatorId === STATE.userId;
         const grace = iAmHost ? 0 : 1200;
         if (nowTs() >= (room.countdownEnd || 0) + grace) tryStartPlaying();
     }
 
-    if (room.state === 'playing') {
+    if (room.state === 'playing' && room.roomType === 'hold') {
         const holders = Object.values(players).filter(p => p.status === 'holding').length;
         if (holders <= 1) tryResolveWinner();
     }
@@ -1860,25 +2117,27 @@ function updateRoomView(room) {
     const me = players[STATE.userId];
     const isHost = room.creatorId === STATE.userId;
     const pot = (room.bet || 0) * ids.length;
+    const isTimeGame = room.roomType === 'time';
 
-    document.getElementById('room-title').textContent = room.name || 'Комната';
+    const typeLabel = isTimeGame ? '⏱ Чувство времени' : '🔥 Удержание';
+    document.getElementById('room-title').textContent = `${room.name} [${typeLabel}]`;
     document.getElementById('room-bet').textContent = '💎 ' + fmt(room.bet);
 
-    // подпись, чтобы не перерисовывать DOM во время удержания
     const sig = room.state + '|' + ids.map(id => id + ':' + players[id].status).join(',') + '|' + (room.winnerId || '');
     if (sig === STATE.roomSig) return;
     STATE.roomSig = sig;
 
-    // --- список игроков ---
     let ph = '';
     ids.forEach(pid => {
         const p = players[pid];
         const isMe = pid === STATE.userId;
         const map = {
             holding: ['status-holding', '🟢 Держит'],
-            lost:    ['status-lost', '❌ Отпустил'],
+            playing: ['status-holding', '🟢 Считает'],
+            stopped: ['status-holding', '✅ Готов'],
+            lost:    ['status-lost', '❌ Выбыл'],
             winner:  ['status-winner', '👑 Победитель'],
-            waiting: ['status-waiting', room.state === 'countdown' ? '⏳ Не держит' : '⏳ Готов']
+            waiting: ['status-waiting', room.state === 'countdown' ? '⏳ Ожидание' : '⏳ В лобби']
         };
         const [cls, txt] = map[p.status] || map.waiting;
         ph += `
@@ -1890,51 +2149,81 @@ function updateRoomView(room) {
     });
     document.getElementById('room-players').innerHTML = ph;
 
-    // --- игровая зона ---
     const game = document.getElementById('room-game');
     let gh = '';
 
     if (room.state === 'waiting') {
         const canStart = isHost && ids.length >= 2;
         gh = `
-            <div class="arena-hold-btn waiting">⏳<span class="arena-hold-sub">Ожидание игроков<br>${ids.length}/${room.maxPlayers || 2}</span></div>
+            <div class="arena-hold-btn waiting">⏳<span class="arena-hold-sub">Ожидание<br>${ids.length}/${room.maxPlayers || 2}</span></div>
             <div class="arena-pot">🏆 Банк: ${fmt(pot)} кликов</div>
             ${isHost
                 ? `<button class="arena-start-btn" id="btn-start-game" ${canStart ? '' : 'disabled'}>${canStart ? '🎮 Начать игру!' : '👥 Нужно минимум 2 игрока'}</button>`
                 : `<div class="arena-hint muted">Ждём, пока хост начнёт бой...</div>`}
-            <div class="arena-hint muted">Правило: кто дольше всех удержит кнопку — забирает весь банк</div>`;
+            <div class="arena-hint muted">${isTimeGame ? 'Правило: Отсчитайте заданное время и нажмите СТОП точнее всех.' : 'Правило: Кто дольше всех удержит кнопку — забирает весь банк.'}</div>`;
     }
     else if (room.state === 'countdown') {
         gh = `
             <div class="arena-countdown" id="room-countdown">3</div>
             <div class="arena-hold-btn ${me && me.status === 'holding' ? 'holding' : 'ready'}" id="arena-hold-btn">
-                ${me && me.status === 'holding' ? '🔒' : '🎯'}
-                <span class="arena-hold-sub">${me && me.status === 'holding' ? 'Отлично, держите!' : 'ЗАЖМИТЕ И ДЕРЖИТЕ'}</span>
+                ${isTimeGame ? '⏱️' : (me && me.status === 'holding' ? '🔒' : '🎯')}
+                <span class="arena-hold-sub">${isTimeGame ? 'ПРИГОТОВЬТЕСЬ' : (me && me.status === 'holding' ? 'Отлично, держите!' : 'ЗАЖМИТЕ И ДЕРЖИТЕ')}</span>
             </div>
-            <div class="arena-hint">${me && me.status === 'holding' ? 'Не отпускайте до конца отсчёта!' : '⚠️ Успейте зажать до старта, иначе поражение!'}</div>`;
+            <div class="arena-hint">${isTimeGame ? `Вам нужно будет отсчитать <b>${room.targetTime} сек.</b>!` : (me && me.status === 'holding' ? 'Не отпускайте до конца отсчёта!' : '⚠️ Успейте зажать до старта, иначе поражение!')}</div>`;
     }
     else if (room.state === 'playing') {
         const st = me ? me.status : 'lost';
-        if (st === 'holding') {
-            gh = `
-                <div class="arena-countdown" id="room-timer">0.0с</div>
-                <div class="arena-hold-btn holding" id="arena-hold-btn">🔥<span class="arena-hold-sub">ДЕРЖИТЕ!</span></div>
-                <div class="arena-hint">Отпустите — проиграете. Банк: ${fmt(pot)} 💎</div>`;
+
+        if (isTimeGame) {
+            if (st === 'playing') {
+                gh = `
+                    <div class="arena-countdown">???</div>
+                    <div class="arena-hold-btn ready" onclick="arenaTimeStop()" style="cursor:pointer; background:linear-gradient(135deg, var(--danger), var(--danger-dark)); box-shadow: 0 0 30px rgba(255,71,87,0.6);">
+                        ⏹️<span class="arena-hold-sub">СТОП!</span>
+                    </div>
+                    <div class="arena-hint" style="color:var(--accent-light); font-size:14px;">Отсчитайте ровно <b>${room.targetTime} сек</b> и жмите СТОП!</div>`;
+            } else if (st === 'stopped') {
+                gh = `
+                    <div class="arena-countdown">✅</div>
+                    <div class="arena-hold-btn holding" style="background:linear-gradient(135deg, #06d6a0, #04b890);">
+                        ⏱️<span class="arena-hold-sub">Время записано!</span>
+                    </div>
+                    <div class="arena-hint muted">Ожидаем остальных игроков...</div>`;
+            } else {
+                gh = `
+                    <div class="arena-countdown">❌</div>
+                    <div class="arena-hold-btn lost">💀<span class="arena-hold-sub">Вы выбыли</span></div>
+                    <div class="arena-hint muted">Вы не успели нажать СТОП вовремя.</div>`;
+            }
         } else {
-            gh = `
-                <div class="arena-countdown" id="room-timer">0.0с</div>
-                <div class="arena-hold-btn lost">💀<span class="arena-hold-sub">Вы выбыли</span></div>
-                <div class="arena-hint muted">Смотрим, кто продержится дольше...</div>`;
+            if (st === 'holding') {
+                gh = `
+                    <div class="arena-countdown" id="room-timer">0.0с</div>
+                    <div class="arena-hold-btn holding" id="arena-hold-btn">🔥<span class="arena-hold-sub">ДЕРЖИТЕ!</span></div>
+                    <div class="arena-hint">Отпустите — проиграете. Банк: ${fmt(pot)} 💎</div>`;
+            } else {
+                gh = `
+                    <div class="arena-countdown" id="room-timer">0.0с</div>
+                    <div class="arena-hold-btn lost">💀<span class="arena-hold-sub">Вы выбыли</span></div>
+                    <div class="arena-hint muted">Смотрим, кто продержится дольше...</div>`;
+            }
         }
     }
     else if (room.state === 'finished') {
         const iWon = room.winnerId === STATE.userId;
         const winnerNick = room.winnerId && players[room.winnerId] ? players[room.winnerId].nickname : null;
+        
+        let extraInfo = '';
+        if (isTimeGame && room.winnerId && players[room.winnerId].releasedAt) {
+            const timeDiff = Math.abs((players[room.winnerId].releasedAt - room.startedAt) - (room.targetTime * 1000)) / 1000;
+            extraInfo = `<br><span style="font-size:11px; opacity:0.8;">Погрешность: ${timeDiff.toFixed(2)} сек.</span>`;
+        }
+
         gh = `
             <div class="arena-hold-btn ${iWon ? 'won' : 'lost'}">${iWon ? '👑' : '😢'}
-                <span class="arena-hold-sub">${iWon ? 'Вы забрали ' + fmt(pot) + ' 💎' : (winnerNick ? 'Победил ' + escapeHtml(winnerNick) : 'Ничья — ставки возвращены')}</span>
+                <span class="arena-hold-sub">${iWon ? 'Вы забрали ' + fmt(pot) + ' 💎' : (winnerNick ? 'Победил ' + escapeHtml(winnerNick) : 'Ничья — ставки возвращены')}${extraInfo}</span>
             </div>
-            <button class="arena-start-btn" id="btn-back-lobby">← Вернуться в лобби</button>`;
+            <button class="arena-start-btn" id="btn-back-lobby">← В меню игр</button>`;
     }
 
     game.innerHTML = gh;
@@ -1942,10 +2231,9 @@ function updateRoomView(room) {
     const sb = document.getElementById('btn-start-game');
     if (sb) sb.onclick = startArenaGame;
     const bb = document.getElementById('btn-back-lobby');
-    if (bb) bb.onclick = () => { detachRoomListeners(); renderArenaLobby(); };
+    if (bb) bb.onclick = () => { detachRoomListeners(); renderMiniGamesMenu(); };
 }
 
-// ---------- ТИК (главный фикс таймера) ----------
 function arenaTick() {
     const room = STATE.roomData;
     if (!STATE.currentRoomId || !room) return;
@@ -1967,9 +2255,15 @@ function arenaTick() {
     }
     else if (room.state === 'playing') {
         const el = document.getElementById('room-timer');
-        if (el) {
+        if (el && room.roomType === 'hold') {
             const t = Math.max(0, (nowTs() - (room.startedAt || nowTs())) / 1000);
             el.textContent = t.toFixed(1) + 'с';
+        }
+        
+        // Авто-завершение для режима времени, если все уснули
+        if (room.roomType === 'time' && room.creatorId === STATE.userId) {
+            const timeElapsed = nowTs() - (room.startedAt || nowTs());
+            if (timeElapsed > (room.targetTime * 1000) + 5000) tryResolveWinner();
         }
     }
 }
@@ -1980,11 +2274,9 @@ function startArenaGame() {
     const btn = document.getElementById('btn-start-game');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Запуск...'; }
     db.ref('rooms/' + id).update({
-        state: 'countdown',
-        countdownEnd: nowTs() + 5000,
-        lastActivity: firebase.database.ServerValue.TIMESTAMP
+        state: 'countdown', countdownEnd: nowTs() + 5000, lastActivity: firebase.database.ServerValue.TIMESTAMP
     });
-    sendRoomSystemMsg(id, 'Бой начинается! Зажимайте кнопку 🔥');
+    sendRoomSystemMsg(id, 'Игра начинается! 🔥');
 }
 
 function tryStartPlaying() {
@@ -1999,8 +2291,16 @@ function tryStartPlaying() {
         cur.state = 'playing';
         cur.startedAt = nowTs();
         const pl = cur.players || {};
+        
         Object.keys(pl).forEach(pid => {
-            if (pl[pid].status !== 'holding') { pl[pid].status = 'lost'; pl[pid].releasedAt = nowTs(); }
+            if (cur.roomType === 'time') {
+                pl[pid].status = 'playing';
+            } else {
+                if (pl[pid].status !== 'holding') { 
+                    pl[pid].status = 'lost'; 
+                    pl[pid].releasedAt = nowTs(); 
+                }
+            }
         });
         cur.players = pl;
         return cur;
@@ -2017,22 +2317,48 @@ function tryResolveWinner() {
         if (!cur || cur.state !== 'playing') return;
         const pl = cur.players || {};
         const ids = Object.keys(pl);
-        const holders = ids.filter(p => pl[p].status === 'holding');
-        if (holders.length > 1) return;
-
         let winner = null;
-        if (holders.length === 1) winner = holders[0];
-        else {
-            let best = -1;
-            ids.forEach(p => { const t = pl[p].releasedAt || 0; if (t > best) { best = t; winner = p; } });
-            if (best <= 0) winner = null;
+
+        if (cur.roomType === 'time') {
+            const timeElapsed = nowTs() - cur.startedAt;
+            const targetMs = cur.targetTime * 1000;
+            const maxWait = targetMs + 5000; 
+
+            const stillPlaying = ids.filter(p => pl[p].status === 'playing');
+            if (stillPlaying.length > 0 && timeElapsed < maxWait) return; 
+
+            if (timeElapsed >= maxWait) {
+                stillPlaying.forEach(p => { pl[p].status = 'lost'; });
+            }
+
+            let bestDiff = 99999999;
+            ids.forEach(p => {
+                if (pl[p].status === 'stopped') {
+                    const playerTime = (pl[p].releasedAt || 0) - cur.startedAt;
+                    const diff = Math.abs(playerTime - targetMs);
+                    if (diff < bestDiff) { bestDiff = diff; winner = p; }
+                }
+            });
+
+        } else {
+            const holders = ids.filter(p => pl[p].status === 'holding');
+            if (holders.length > 1) return; 
+
+            if (holders.length === 1) winner = holders[0];
+            else {
+                let best = -1;
+                ids.forEach(p => { const t = pl[p].releasedAt || 0; if (t > best) { best = t; winner = p; } });
+                if (best <= 0) winner = null;
+            }
         }
+
         cur.state = 'finished';
         cur.finishedAt = nowTs();
         cur.winnerId = winner || null;
         if (winner && pl[winner]) pl[winner].status = 'winner';
         cur.players = pl;
         return cur;
+        
     }, (err, committed, snap) => {
         tryResolveWinner._busy = false;
         if (err || !committed || !snap) return;
@@ -2044,8 +2370,7 @@ function tryResolveWinner() {
 
 function payoutRoom(roomId, room) {
     db.ref('rooms/' + roomId + '/paid').transaction(v => {
-        if (v) return;               // уже выплачено
-        return true;
+        if (v) return; return true;
     }, (err, committed) => {
         if (err || !committed) return;
         const players = room.players || {};
@@ -2066,10 +2391,23 @@ function payoutRoom(roomId, room) {
     });
 }
 
-// ---------- УДЕРЖАНИЕ ----------
+function arenaTimeStop() {
+    const room = STATE.roomData;
+    if (!STATE.currentRoomId || !room || room.roomType !== 'time' || room.state !== 'playing') return;
+    const me = (room.players || {})[STATE.userId];
+    if (!me || me.status === 'stopped' || me.status === 'lost') return; 
+
+    db.ref(`rooms/${STATE.currentRoomId}/players/${STATE.userId}`).update({
+        status: 'stopped', releasedAt: nowTs()
+    }).then(() => setTimeout(tryResolveWinner, 300)); 
+    
+    if (navigator.vibrate) navigator.vibrate([30, 30]);
+}
+
 function arenaPressStart() {
     const room = STATE.roomData;
     if (!STATE.currentRoomId || !room) return;
+    if (room.roomType === 'time') return; // В режиме времени эта кнопка не работает
     if (room.state !== 'countdown' && room.state !== 'playing') return;
     const me = (room.players || {})[STATE.userId];
     if (!me || me.status === 'lost' || me.status === 'winner') return;
@@ -2088,7 +2426,7 @@ function arenaPressEnd() {
     const room = STATE.roomData;
     const btn = document.getElementById('arena-hold-btn');
     if (btn) btn.classList.remove('holding');
-    if (!STATE.currentRoomId || !room) return;
+    if (!STATE.currentRoomId || !room || room.roomType === 'time') return;
 
     if (room.state === 'countdown') {
         db.ref(`rooms/${STATE.currentRoomId}/players/${STATE.userId}/status`).set('waiting');
@@ -2122,13 +2460,11 @@ function setupArenaGlobalListeners() {
     document.addEventListener('visibilitychange', () => { if (document.hidden) arenaPressEnd(); });
 }
 
-// ---------- ЧАТ КОМНАТЫ ----------
 function renderRoomChat() {
     const box = document.getElementById('room-chat-messages');
     if (!box) return;
     if (!STATE.roomChat.length) {
-        box.innerHTML = `<div class="room-msg sys">Общайтесь с соперниками 👋</div>`;
-        return;
+        box.innerHTML = `<div class="room-msg sys">Общайтесь с соперниками 👋</div>`; return;
     }
     box.innerHTML = STATE.roomChat.map(m => {
         if (m.sys) return `<div class="room-msg sys">${escapeHtml(censorText(m.text))}</div>`;
@@ -2149,29 +2485,24 @@ function sendRoomChat() {
     ARENA.lastChatSend = now;
 
     db.ref('roomChats/' + STATE.currentRoomId).push({
-        userId: STATE.userId,
-        nickname: STATE.nickname,
-        text: text.substring(0, 120),
-        ts: firebase.database.ServerValue.TIMESTAMP
+        userId: STATE.userId, nickname: STATE.nickname,
+        text: text.substring(0, 120), ts: firebase.database.ServerValue.TIMESTAMP
     });
     input.value = '';
 }
 
 function sendRoomSystemMsg(roomId, text) {
     if (!roomId) return;
-    db.ref('roomChats/' + roomId).push({
-        sys: true, text: text, ts: firebase.database.ServerValue.TIMESTAMP
-    }).catch(() => {});
+    db.ref('roomChats/' + roomId).push({ sys: true, text: text, ts: firebase.database.ServerValue.TIMESTAMP }).catch(() => {});
 }
 
-// ---------- ВЫХОД ----------
 function leaveRoom() {
     const id = STATE.currentRoomId;
-    if (!id) { renderArenaLobby(); return; }
+    if (!id) { renderMiniGamesMenu(); return; }
     const room = STATE.roomData || {};
     const state = room.state;
 
-    const finish = () => { detachRoomListeners(); renderArenaLobby(); };
+    const finish = () => { detachRoomListeners(); renderMiniGamesMenu(); };
 
     if (state === 'waiting') {
         askConfirm('🚪', 'Покинуть комнату?', 'Ставка будет возвращена.', () => {
@@ -2184,11 +2515,10 @@ function leaveRoom() {
             db.ref(`rooms/${id}/players/${STATE.userId}`).remove().then(() => {
                 if (isHost) {
                     db.ref('rooms/' + id).once('value').then(s => {
-                        const r = s.val();
-                        if (!r) return;
+                        const r = s.val(); if (!r) return;
                         const rest = Object.keys(r.players || {});
                         if (!rest.length) { db.ref('rooms/' + id).remove(); db.ref('roomChats/' + id).remove(); }
-                        else db.ref('rooms/' + id + '/creatorId').set(rest[0]);   // передаём хоста
+                        else db.ref('rooms/' + id + '/creatorId').set(rest[0]);   
                     });
                 }
             });
@@ -2208,11 +2538,9 @@ function leaveRoom() {
         });
         return;
     }
-
     finish();
 }
 
-// ---------- ОЧИСТКА КОМНАТ ----------
 function cleanupRooms() {
     db.ref('rooms').limitToLast(50).once('value').then(snap => {
         const now = Date.now();
@@ -2229,11 +2557,11 @@ function cleanupRooms() {
             if (players === 0 && age > 20000) {
                 db.ref('rooms/' + id).remove(); db.ref('roomChats/' + id).remove(); return;
             }
-            if (r.state === 'waiting' && idle > 1800000) {                 // «мёртвая» комната 30 мин
+            if (r.state === 'waiting' && idle > 1800000) {                 
                 Object.keys(r.players || {}).forEach(pid => sendToInbox(pid, r.bet || 0, 'refund', 'cleanup'));
                 db.ref('rooms/' + id).remove(); db.ref('roomChats/' + id).remove(); return;
             }
-            if ((r.state === 'playing' || r.state === 'countdown') && idle > 600000) { // зависший бой 10 мин
+            if ((r.state === 'playing' || r.state === 'countdown') && idle > 600000) { 
                 if (!r.paid) Object.keys(r.players || {}).forEach(pid => sendToInbox(pid, r.bet || 0, 'refund', 'cleanup'));
                 db.ref('rooms/' + id).remove(); db.ref('roomChats/' + id).remove();
             }
@@ -2242,7 +2570,7 @@ function cleanupRooms() {
 }
 
 // ============================================================
-// НАВИГАЦИЯ
+// НАВИГАЦИЯ И ФОН
 // ============================================================
 const SIDE_TABS = ['leaderboard', 'shop', 'arena', 'clan'];
 
@@ -2254,16 +2582,11 @@ function switchTab(tabName) {
     panel.classList.add('active-tab');
 
     if (SIDE_TABS.includes(tabName)) {
-        SIDE_TABS.forEach(t => {
-            const el = document.getElementById('tab-' + t);
-            if (el) el.classList.remove('side-active');
-        });
+        SIDE_TABS.forEach(t => { const el = document.getElementById('tab-' + t); if (el) el.classList.remove('side-active'); });
         panel.classList.add('side-active');
-        document.querySelectorAll('.side-switch-btn').forEach(b =>
-            b.classList.toggle('active', b.dataset.tab === tabName));
+        document.querySelectorAll('.side-switch-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
     }
-    document.querySelectorAll('.nav-btn').forEach(b =>
-        b.classList.toggle('active', b.dataset.tab === tabName));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
 
     STATE.currentTab = tabName;
 
@@ -2275,19 +2598,15 @@ function switchTab(tabName) {
     }
     if (tabName === 'shop') renderShop();
     if (tabName === 'clan') renderClan();
-    if (tabName === 'arena' && !STATE.currentRoomId && !ARENA.roomsRef) renderArenaLobby();
+    if (tabName === 'arena' && !STATE.currentRoomId) renderMiniGamesMenu();
 }
 
-// ============================================================
-// ФОН РЕГИСТРАЦИИ И ЛОГОТИП
-// ============================================================
 function initRegBackground() {
     const canvas = document.getElementById('reg-bg-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-    resize();
-    window.addEventListener('resize', resize);
+    resize(); window.addEventListener('resize', resize);
 
     const ps = [];
     const count = window.innerWidth < 600 ? 45 : 80;
@@ -2296,15 +2615,13 @@ function initRegBackground() {
             x: Math.random() * canvas.width, y: Math.random() * canvas.height,
             r: Math.random() * 2 + 0.5,
             vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
-            alpha: Math.random() * 0.5 + 0.1,
-            color: Math.random() > 0.5 ? '#7c5cfc' : '#06d6a0'
+            alpha: Math.random() * 0.5 + 0.1, color: Math.random() > 0.5 ? '#7c5cfc' : '#06d6a0'
         });
     }
 
     (function animate() {
         if (document.getElementById('registration-screen').style.display === 'none') return;
-        ctx.fillStyle = 'rgba(6,6,20,0.08)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(6,6,20,0.08)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         for (const p of ps) {
             p.x += p.vx; p.y += p.vy;
             if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0;
@@ -2321,8 +2638,7 @@ function initRegBackground() {
                 }
             }
         }
-        ctx.globalAlpha = 1;
-        requestAnimationFrame(animate);
+        ctx.globalAlpha = 1; requestAnimationFrame(animate);
     })();
 }
 
@@ -2330,40 +2646,30 @@ function drawLogo(canvas) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const w = canvas.width, cx = w / 2, r = w * 0.38;
-    ctx.clearRect(0, 0, w, w);
-    ctx.beginPath();
+    ctx.clearRect(0, 0, w, w); ctx.beginPath();
     for (let i = 0; i < 6; i++) {
-        const a = Math.PI / 6 + (Math.PI / 3) * i;
-        ctx.lineTo(cx + r * Math.cos(a), cx + r * Math.sin(a));
+        const a = Math.PI / 6 + (Math.PI / 3) * i; ctx.lineTo(cx + r * Math.cos(a), cx + r * Math.sin(a));
     }
     ctx.closePath();
     const g = ctx.createLinearGradient(0, 0, w, w);
     g.addColorStop(0, '#7c5cfc'); g.addColorStop(0.5, '#a78bfa'); g.addColorStop(1, '#06d6a0');
-    ctx.fillStyle = g; ctx.fill();
-    ctx.beginPath();
+    ctx.fillStyle = g; ctx.fill(); ctx.beginPath();
     for (let i = 0; i < 6; i++) {
-        const a = Math.PI / 6 + (Math.PI / 3) * i;
-        ctx.lineTo(cx + r * 0.6 * Math.cos(a), cx + r * 0.6 * Math.sin(a));
+        const a = Math.PI / 6 + (Math.PI / 3) * i; ctx.lineTo(cx + r * 0.6 * Math.cos(a), cx + r * 0.6 * Math.sin(a));
     }
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fill();
+    ctx.closePath(); ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fill();
 }
 
-// ============================================================
-// ИНИЦИАЛИЗАЦИЯ
-// ============================================================
 window.addEventListener('load', () => {
     setTimeout(() => {
         const ls = document.getElementById('loading-screen');
-        ls.style.transition = 'opacity 0.5s';
-        ls.style.opacity = '0';
+        ls.style.transition = 'opacity 0.5s'; ls.style.opacity = '0';
         setTimeout(() => {
             ls.style.display = 'none';
             if (STATE.nickname && STATE.userId) startGame();
             else {
                 document.getElementById('registration-screen').style.display = 'flex';
-                initRegBackground();
-                drawLogo(document.getElementById('reg-logo'));
+                initRegBackground(); drawLogo(document.getElementById('reg-logo'));
             }
         }, 500);
     }, 800);
@@ -2390,7 +2696,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Анти-зум
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('gesturechange', e => e.preventDefault());
 document.addEventListener('gestureend', e => e.preventDefault());
@@ -2403,7 +2708,6 @@ document.addEventListener('touchend', e => {
 }, false);
 
 window.addEventListener('beforeunload', () => {
-    saveLocal();
-    saveToFirebase();
+    saveLocal(); saveToFirebase();
     if (STATE.userId) db.ref('online/' + STATE.userId).remove();
 });
